@@ -268,6 +268,55 @@ def api_delete():
         print(f"Erreur lors de la suppression: {e}")
         return jsonify({"error": str(e)}), 500
 
+@app.route('/api/rename', methods=['POST'])
+def api_rename():
+    """Renomme un fichier ou un dossier."""
+    data = request.json
+    old_path = data.get('old_path')
+    new_name = data.get('new_name')
+
+    if not old_path or not new_name:
+        return jsonify({"error": "Chemin ou nouveau nom manquant."}), 400
+
+    # Sécuriser le nouveau nom
+    new_name = secure_filename(new_name)
+    if not new_name:
+        return jsonify({"error": "Nouveau nom invalide."}), 400
+
+    # Construire les chemins complets
+    full_old_path = secure_path_join(BASE_DIR, old_path)
+    
+    if full_old_path is None:
+        return jsonify({"error": "Chemin source en dehors du répertoire géré."}), 400
+
+    # Le nouveau chemin est dans le même dossier que l'ancien
+    parent_dir = os.path.dirname(full_old_path)
+    full_new_path = os.path.join(parent_dir, new_name)
+
+    # Vérifier que le nouveau chemin est aussi sécurisé
+    if not full_new_path.startswith(os.path.normpath(BASE_DIR)):
+        return jsonify({"error": "Nouveau chemin en dehors du répertoire géré."}), 400
+
+    try:
+        if not os.path.exists(full_old_path):
+            return jsonify({"error": "Fichier ou dossier non trouvé."}), 404
+
+        if os.path.exists(full_new_path):
+            return jsonify({"error": f"Un fichier ou dossier nommé '{new_name}' existe déjà."}), 409
+
+        # Renommer
+        os.rename(full_old_path, full_new_path)
+        
+        item_type = "Dossier" if os.path.isdir(full_new_path) else "Fichier"
+        return jsonify({"message": f"{item_type} renommé en '{new_name}' avec succès."}), 200
+        
+    except OSError as e:
+        print(f"Erreur d'OS lors du renommage: {e}")
+        return jsonify({"error": f"Erreur de permission ou de système: {e}"}), 500
+    except Exception as e:
+        print(f"Erreur lors du renommage: {e}")
+        return jsonify({"error": str(e)}), 500
+
 @app.route('/api/download', methods=['GET'])
 def api_download():
     """Sert un fichier pour téléchargement."""

@@ -506,6 +506,9 @@ function generateContextMenuHtml(file) {
             <button onclick="navigateToFolder('/${file.path}')" class="flex items-center w-full px-3 py-2 text-sm text-slate-700 hover:bg-blue-50 transition duration-150">
                 <i class="fas fa-folder-open mr-2 w-4"></i> Ouvrir
             </button>
+            <button onclick="openRenameModal('${file.name}', '${file.path}', true)" class="flex items-center w-full px-3 py-2 text-sm text-slate-700 hover:bg-blue-50 transition duration-150">
+                <i class="fas fa-edit mr-2 w-4"></i> Renommer
+            </button>
             <div class="border-t border-slate-100 my-1"></div>
             <button onclick="confirmDelete('${file.name}', '${file.path}')" class="flex items-center w-full px-3 py-2 text-sm text-red-600 hover:bg-red-50 transition duration-150">
                 <i class="fas fa-trash-alt mr-2 w-4"></i> Supprimer le dossier
@@ -526,6 +529,9 @@ function generateContextMenuHtml(file) {
             `;
         }
         html += `
+            <button onclick="openRenameModal('${file.name}', '${file.path}', false)" class="flex items-center w-full px-3 py-2 text-sm text-slate-700 hover:bg-blue-50 transition duration-150">
+                <i class="fas fa-edit mr-2 w-4"></i> Renommer
+            </button>
             <div class="border-t border-slate-100 my-1"></div>
             <button onclick="confirmDelete('${file.name}', '${file.path}')" class="flex items-center w-full px-3 py-2 text-sm text-red-600 hover:bg-red-50 transition duration-150">
                 <i class="fas fa-trash-alt mr-2 w-4"></i> Supprimer le fichier
@@ -822,6 +828,99 @@ async function handleDelete(path) {
     } catch (error) {
         console.error("Erreur de suppression:", error);
         showNotification(`Échec de la suppression: ${error.message}`, 'error');
+    }
+}
+
+// --- LOGIQUE DE RENOMMAGE ---
+
+function openRenameModal(currentName, path, isFolder) {
+    contextMenu.classList.add('hidden');
+    const title = `Renommer ${isFolder ? 'le dossier' : 'le fichier'}`;
+    
+    // Extraire le nom sans extension pour les fichiers
+    let nameWithoutExt = currentName;
+    let extension = '';
+    
+    if (!isFolder && currentName.includes('.')) {
+        const lastDotIndex = currentName.lastIndexOf('.');
+        nameWithoutExt = currentName.substring(0, lastDotIndex);
+        extension = currentName.substring(lastDotIndex);
+    }
+    
+    const content = `
+        <form id="rename-form" class="space-y-4">
+            <div>
+                <label for="new-name" class="block text-sm font-medium text-slate-700 mb-2">
+                    Nouveau nom ${isFolder ? 'du dossier' : 'du fichier'} :
+                </label>
+                <div class="flex items-center gap-2">
+                    <input type="text" id="new-name" name="new-name" 
+                           class="flex-1 px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                           value="${nameWithoutExt}" required autofocus>
+                    ${!isFolder ? `<span class="text-slate-600 font-medium">${extension}</span>` : ''}
+                </div>
+                <p class="text-xs text-slate-500 mt-2">
+                    ${isFolder ? 'Le nom ne doit pas contenir de caractères spéciaux.' : `L'extension ${extension} sera conservée.`}
+                </p>
+            </div>
+            <input type="hidden" id="old-path" value="${path}">
+            <input type="hidden" id="is-folder" value="${isFolder}">
+            <input type="hidden" id="extension" value="${extension}">
+            <div class="flex justify-end space-x-3 pt-2">
+                <button type="button" onclick="closeModal()" class="px-4 py-2 text-sm text-slate-700 border border-slate-300 rounded-lg hover:bg-slate-100 transition">Annuler</button>
+                <button type="submit" class="px-4 py-2 text-sm bg-blue-600 text-white rounded-lg font-semibold hover:bg-blue-700 transition">Renommer</button>
+            </div>
+        </form>
+    `;
+    openModal(title, content);
+
+    document.getElementById('rename-form').addEventListener('submit', handleRenameSubmit);
+    
+    // Sélectionner le texte dans l'input
+    const input = document.getElementById('new-name');
+    input.select();
+}
+
+async function handleRenameSubmit(event) {
+    event.preventDefault();
+    closeModal();
+
+    const newNameInput = document.getElementById('new-name').value.trim();
+    const oldPath = document.getElementById('old-path').value;
+    const isFolder = document.getElementById('is-folder').value === 'true';
+    const extension = document.getElementById('extension').value;
+    
+    if (!newNameInput) {
+        showNotification("Le nouveau nom ne peut pas être vide.", 'warning');
+        return;
+    }
+
+    // Ajouter l'extension pour les fichiers
+    const newName = isFolder ? newNameInput : newNameInput + extension;
+
+    try {
+        const response = await fetch(API_BASE + '/rename', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+                old_path: oldPath,
+                new_name: newName
+            })
+        });
+
+        const result = await response.json();
+
+        if (response.ok) {
+            showNotification(result.message, 'success');
+            navigateToFolder(currentPath);
+        } else {
+            throw new Error(result.error || "Erreur inconnue lors du renommage.");
+        }
+    } catch (error) {
+        console.error("Erreur de renommage:", error);
+        showNotification(`Échec du renommage: ${error.message}`, 'error');
     }
 }
 
