@@ -1,0 +1,19 @@
+version: '3.8'
+
+services:
+  filemanager:
+    build: .
+    container_name: flask_file_manager
+    ports:
+      - "5000:5000" 
+    volumes:
+#      - ./data:/data  # Le volume montera /data dans le conteneur 
+       - ../jellyfin/hd/:/data
+    # Définir la variable d'environnement lue par serveur.py
+    environment:
+      - FLASK_BASE_DIR=/data
+      
+    restart: unless-stopped
+    
+    # La commande Gunicorn n'a plus besoin de l'argument /data
+    command: gunicorn -w 2 -b 0.0.0.0:5000 server:app --timeout 960

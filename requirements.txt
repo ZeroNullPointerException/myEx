@@ -1,0 +1,3 @@
+Flask
+flask-cors
+gunicorn # Utilisation d'un serveur WSGI de production pour une meilleure robustesse
