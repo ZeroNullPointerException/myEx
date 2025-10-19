@@ -19,9 +19,8 @@ const notifications = {
             'warning': 'bg-yellow-100 border-yellow-400'
         };
 
-        const notification = document.createElement('div');
-        notification.className = `fixed bottom-5 right-5 p-4 rounded-lg shadow-xl border ${bgMap[type]} transition-opacity duration-300 z-50 flex items-center opacity-0 max-w-md`;
-        
+       const notification = document.createElement('div');
+        notification.className = `p-4 rounded-lg shadow-xl border ${bgMap[type]} transition-opacity duration-300 flex items-center opacity-0 max-w-md`;   
         notification.innerHTML = `
             <i class="${iconMap[type]} mr-3 text-lg flex-shrink-0"></i>
             <span class="text-sm font-medium text-slate-700">${message}</span>

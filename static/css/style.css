@@ -29,6 +29,11 @@ body {
     right: 20px;
     z-index: 50;
     max-width: 90vw;
+    /* --- CORRECTION POUR L'EMPILAGE --- */
+    display: flex; /* Active le mode Flexbox */
+    flex-direction: column-reverse; /* Empilement vertical (le nouveau va en bas) */
+    gap: 10px; /* Espace de 10px entre les notifications */
+    align-items: flex-end; /* Aligne les notifications à droite */
 }
 
 /* Fixe le z-index pour les modales */
