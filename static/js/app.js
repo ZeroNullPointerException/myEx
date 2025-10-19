@@ -1,6 +1,6 @@
 /*
  * Fichier JavaScript externe pour le Gestionnaire de Fichiers.
- * Version améliorée avec ergonomie optimisée
+ * Version améliorée avec upload de dossiers et navigation corrigée
  */
 
 const API_BASE = '/api';
@@ -10,12 +10,14 @@ const ROOT_PATH = '/';
 let currentPath = ROOT_PATH;
 let selectedFile = null;
 let isModalOpen = false;
-let sortColumn = 'name'; // 'name', 'size', 'modified'
-let sortDirection = 'asc'; // 'asc', 'desc'
-let isSearchMode = false; // Indique si on est en mode recherche
-let lastSearchQuery = ''; // Stocke la dernière requête de recherche
+let sortColumn = 'name';
+let sortDirection = 'asc';
+let isSearchMode = false;
+let lastSearchQuery = '';
+let navigationHistory = [ROOT_PATH]; // Historique de navigation
+let historyIndex = 0; // Index actuel dans l'historique
 
-// Références DOM (initialisation au chargement de la fenêtre)
+// Références DOM
 let fileListBody;
 let pathDisplay;
 let modalOverlay;
@@ -27,9 +29,6 @@ let notificationContainer;
 
 // --- GESTION DES CHEMINS ---
 
-/**
- * Construit l'URL d'une API pour un chemin donné.
- */
 function buildApiUrl(endpoint, path) {
     const url = new URL(`${API_BASE}/${endpoint}`, window.location.origin);
     if (path !== undefined) {
@@ -41,10 +40,22 @@ function buildApiUrl(endpoint, path) {
 /**
  * Navigue vers un dossier spécifique et rafraîchit la liste.
  */
-async function navigateToFolder(newPath, isSearchResult = false) {
+async function navigateToFolder(newPath, isSearchResult = false, addToHistory = true) {
     if (!isSearchResult) {
         currentPath = newPath;
         isSearchMode = false;
+        
+        // Gestion de l'historique pour la navigation
+        if (addToHistory) {
+            // Supprimer les éléments après l'index actuel
+            navigationHistory = navigationHistory.slice(0, historyIndex + 1);
+            // Ajouter le nouveau chemin si différent du dernier
+            if (navigationHistory[navigationHistory.length - 1] !== newPath) {
+                navigationHistory.push(newPath);
+                historyIndex = navigationHistory.length - 1;
+            }
+        }
+        
         history.pushState({ path: currentPath }, '', `?path=${encodeURIComponent(currentPath)}`);
     }
 
@@ -73,18 +84,31 @@ async function navigateToFolder(newPath, isSearchResult = false) {
 }
 
 /**
- * Gère la soumission du formulaire de téléversement avec barre de progression.
+ * Remonte d'un niveau dans l'arborescence.
+ */
+function navigateUp() {
+    if (currentPath === ROOT_PATH) {
+        showNotification("Vous êtes déjà à la racine", 'info');
+        return;
+    }
+    
+    const parentPath = getParentPath(currentPath);
+    navigateToFolder(parentPath);
+}
+
+/**
+ * Gère le téléversement de fichiers ET de dossiers avec barre de progression.
  */
 function handleUploadFormSubmit(event) {
     event.preventDefault();
     
     const form = event.target;
     const fileInput = document.getElementById('upload-file-input');
-    const file = fileInput.files[0];
+    const files = fileInput.files;
     const uploadArea = document.getElementById('upload-status-area');
     
-    if (!file) {
-        showNotification("Veuillez sélectionner un fichier.", 'warning');
+    if (!files || files.length === 0) {
+        showNotification("Veuillez sélectionner des fichiers ou un dossier.", 'warning');
         return;
     }
     
@@ -96,8 +120,17 @@ function handleUploadFormSubmit(event) {
     `;
 
     const formData = new FormData();
-    formData.append('file', file);
-    formData.append('path', currentPath); 
+    
+    // Ajouter tous les fichiers au FormData
+    for (let i = 0; i < files.length; i++) {
+        formData.append('files', files[i]);
+        // Stocker le chemin relatif du fichier si disponible
+        if (files[i].webkitRelativePath) {
+            formData.append('paths', files[i].webkitRelativePath);
+        }
+    }
+    
+    formData.append('path', currentPath);
     
     const progressBar = document.getElementById('progress-bar');
     const progressText = document.getElementById('progress-text');
@@ -109,7 +142,7 @@ function handleUploadFormSubmit(event) {
         if (event.lengthComputable) {
             const percentComplete = Math.round((event.loaded / event.total) * 100);
             progressBar.style.width = percentComplete + '%';
-            progressText.textContent = `${percentComplete}% - ${file.name}`;
+            progressText.textContent = `${percentComplete}% - ${files.length} fichier(s)`;
         }
     };
 
@@ -120,14 +153,7 @@ function handleUploadFormSubmit(event) {
                                     <i class="fas fa-cloud-upload-alt mr-2"></i> <span>Téléverser</span>
                                 </button>`;
         
-        document.getElementById('upload-file-input').addEventListener('change', (event) => {
-            const button = document.getElementById('upload-submit-btn');
-            if (event.target.files.length > 0) {
-                button.removeAttribute('disabled');
-            } else {
-                button.setAttribute('disabled', 'disabled');
-            }
-        });
+        document.getElementById('upload-file-input').addEventListener('change', handleFileInputChange);
 
         if (xhr.status >= 200 && xhr.status < 300) {
             const result = JSON.parse(xhr.responseText);
@@ -158,12 +184,17 @@ function handleUploadFormSubmit(event) {
 
 // Gérer le bouton retour du navigateur
 window.onpopstate = (event) => {
-    const newPath = event.state?.path || ROOT_PATH;
+    event.preventDefault();
+    
     if (isSearchMode) {
         exitSearchMode();
-    } else {
-        navigateToFolder(newPath);
+    } else if (currentPath !== ROOT_PATH) {
+        // Remonter d'un niveau au lieu de fermer
+        navigateUp();
     }
+    
+    // Empêcher la fermeture de la page
+    return false;
 };
 
 // --- AFFICHAGE ET RENDU ---
@@ -182,9 +213,6 @@ function hideLoading() {
     // La fonction navigateToFolder remplace directement le contenu
 }
 
-/**
- * Affiche la liste des fichiers dans le tableau et met à jour la barre d'adresse.
- */
 function renderFileList(files, path, isSearchResult) {
     pathDisplay.innerHTML = '';
     fileListBody.innerHTML = '';
@@ -250,7 +278,7 @@ function renderFileList(files, path, isSearchResult) {
     if (!isSearchResult && currentPath !== ROOT_PATH) {
         const parentPath = getParentPath(currentPath);
         fileListBody.innerHTML += `
-            <tr class="hover:bg-slate-100 transition duration-150 cursor-pointer group" onclick="navigateToFolder('${parentPath}')">
+            <tr class="hover:bg-slate-100 transition duration-150 cursor-pointer group" onclick="navigateUp()">
                 <td class="flex items-center px-4 py-3 whitespace-nowrap text-slate-600 font-medium">
                     <i class="fas fa-level-up-alt w-5 text-center mr-3 text-slate-400 group-hover:text-blue-600 transition duration-150"></i>
                     <span class="group-hover:text-blue-700 transition duration-150">... (Remonter)</span>
@@ -322,9 +350,6 @@ function renderFileList(files, path, isSearchResult) {
     updateSortIndicators();
 }
 
-/**
- * Met à jour les indicateurs de tri dans les en-têtes.
- */
 function updateSortIndicators() {
     document.querySelectorAll('.sortable-header').forEach(header => {
         const column = header.getAttribute('data-column');
@@ -345,9 +370,6 @@ function updateSortIndicators() {
     });
 }
 
-/**
- * Gère le clic sur un en-tête de colonne pour le tri.
- */
 function handleSort(column) {
     if (sortColumn === column) {
         sortDirection = (sortDirection === 'asc' ? 'desc' : 'asc');
@@ -359,9 +381,6 @@ function handleSort(column) {
     navigateToFolder(currentPath);
 }
 
-/**
- * Fonction de comparaison pour le tri des fichiers.
- */
 function compareFiles(a, b) {
     if (a.is_folder !== b.is_folder) {
         return a.is_folder ? -1 : 1;
@@ -380,9 +399,6 @@ function compareFiles(a, b) {
     return sortDirection === 'asc' ? comparison : comparison * -1;
 }
 
-/**
- * Détermine l'icône Font Awesome appropriée pour un fichier.
- */
 function getFileIcon(filename) {
     const extension = filename.split('.').pop().toLowerCase();
     let iconClass = 'fas fa-file-alt';
@@ -457,9 +473,6 @@ document.addEventListener('click', (event) => {
     }
 });
 
-/**
- * Affiche le menu contextuel personnalisé.
- */
 function showContextMenu(event, name, path, mimeType, size, isFolder) {
     event.preventDefault();
     event.stopPropagation();
@@ -491,9 +504,6 @@ function showContextMenu(event, name, path, mimeType, size, isFolder) {
     }
 }
 
-/**
- * Génère le contenu HTML pour le menu contextuel.
- */
 function generateContextMenuHtml(file) {
     let html = `
         <div class="px-3 py-2 border-b border-slate-100 text-sm font-semibold text-slate-800 truncate">
@@ -544,9 +554,6 @@ function generateContextMenuHtml(file) {
 
 // --- ACTIONS SUR FICHIERS / API ---
 
-/**
- * Gère le clic sur un fichier de manière intelligente.
- */
 function handleFileClick(filename, path, mimeType, size) {
     const canBeViewed = canViewFile(mimeType, filename);
     
@@ -557,9 +564,6 @@ function handleFileClick(filename, path, mimeType, size) {
     }
 }
 
-/**
- * Détermine si un fichier peut être visualisé.
- */
 function canViewFile(mimeType, filename) {
     if (mimeType.startsWith('image/')) return true;
     if (mimeType.startsWith('video/')) return true;
@@ -573,18 +577,12 @@ function canViewFile(mimeType, filename) {
     return false;
 }
 
-/**
- * Lance le téléchargement d'un fichier.
- */
 function downloadFile(path) {
     contextMenu.classList.add('hidden');
     window.open(buildApiUrl('download', path), '_blank');
     showNotification(`Téléchargement de ${path.split('/').pop()} initié.`, 'info');
 }
 
-/**
- * Ouvre le fichier dans un visualiseur.
- */
 function viewFile(path, mimeType, size) {
     contextMenu.classList.add('hidden');
     const filename = path.split('/').pop();
@@ -596,7 +594,6 @@ function viewFile(path, mimeType, size) {
     } else if (mimeType.startsWith('audio/')) {
         openModal(filename, `<audio controls src="${buildApiUrl('view', path)}" class="w-full mt-4"></audio>`);
     } else if (mimeType.startsWith('text/') || mimeType === 'application/json' || filename.endsWith('.log') || filename.endsWith('.py') || filename.endsWith('.html') || filename.endsWith('.css') || filename.endsWith('.js')) {
-        // Ouvrir directement le fichier texte dans le navigateur
         window.open(buildApiUrl('view', path), '_blank');
     } else {
         showNotification(`Visualisation non supportée pour ${filename}. Lancement du téléchargement.`, 'warning');
@@ -606,9 +603,6 @@ function viewFile(path, mimeType, size) {
 
 // --- LOGIQUE DE RECHERCHE ---
 
-/**
- * Gère la soumission des formulaires de recherche.
- */
 function handleSearchSubmit(event) {
     event.preventDefault();
     
@@ -629,9 +623,6 @@ function handleSearchSubmit(event) {
     }
 }
 
-/**
- * Lance la recherche en appelant l'API.
- */
 async function performSearch(query) {
     showLoading();
     lastSearchQuery = query;
@@ -657,9 +648,6 @@ async function performSearch(query) {
     }
 }
 
-/**
- * Quitte le mode recherche et retourne au dossier actuel.
- */
 function exitSearchMode() {
     isSearchMode = false;
     lastSearchQuery = '';
@@ -726,9 +714,6 @@ async function handleCreateFolderSubmit(event) {
 
 // --- MODALE DE TÉLÉVERSEMENT ---
 
-/**
- * Formate la taille d'un fichier en une chaîne lisible.
- */
 function formatFileSize(bytes) {
     if (bytes === 0) return '0 Octets';
     const k = 1024;
@@ -737,28 +722,51 @@ function formatFileSize(bytes) {
     return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
 }
 
-/**
- * Ferme le menu contextuel.
- */
 function closeContextMenu() {
     if (contextMenu) {
         contextMenu.classList.add('hidden');
     }
 }
 
-/**
- * Ouvre la modale de téléversement.
- */
+function handleFileInputChange(event) {
+    const button = document.getElementById('upload-submit-btn');
+    if (button) { 
+        if (event.target.files.length > 0) {
+            button.removeAttribute('disabled');
+            const fileCount = event.target.files.length;
+            const buttonText = button.querySelector('span');
+            if (buttonText) {
+                buttonText.textContent = `Téléverser (${fileCount} fichier${fileCount > 1 ? 's' : ''})`;
+            }
+        } else {
+            button.setAttribute('disabled', 'disabled');
+            const buttonText = button.querySelector('span');
+            if (buttonText) {
+                buttonText.textContent = 'Téléverser';
+            }
+        }
+    }
+}
+
 function openUploadModal() {
     closeContextMenu(); 
     
     const content = `
         <form id="upload-form" class="space-y-4">
-            <p class="text-sm text-slate-600">Le fichier sera téléversé dans le dossier actuel : 
+            <p class="text-sm text-slate-600">Le(s) fichier(s) seront téléversés dans le dossier actuel : 
                 <span class="font-semibold text-blue-600">${currentPath}</span>
             </p>
-            <input type="file" id="upload-file-input" name="file" required 
-                   class="w-full text-sm text-slate-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100 cursor-pointer">
+            <div class="space-y-2">
+                <label class="block text-sm font-medium text-slate-700">
+                    Sélectionner des fichiers ou un dossier :
+                </label>
+                <input type="file" id="upload-file-input" name="file" required multiple webkitdirectory="" directory=""
+                       class="w-full text-sm text-slate-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100 cursor-pointer">
+                <p class="text-xs text-slate-500 mt-1">
+                    <i class="fas fa-info-circle mr-1"></i>
+                    Vous pouvez sélectionner plusieurs fichiers ou un dossier complet
+                </p>
+            </div>
             
             <div id="upload-status-area">
                 <button type="submit" id="upload-submit-btn" 
@@ -770,20 +778,68 @@ function openUploadModal() {
         </form>
     `;
     
-    openModal("Téléverser un Fichier", content);
+    openModal("Téléverser des Fichiers", content);
     
-    document.getElementById('upload-file-input').addEventListener('change', (event) => {
-        const button = document.getElementById('upload-submit-btn');
-        if (button) { 
-            if (event.target.files.length > 0) {
-                button.removeAttribute('disabled');
-            } else {
-                button.setAttribute('disabled', 'disabled');
-            }
-        }
+    // Supprimer les attributs directory pour permettre la sélection de fichiers OU de dossiers
+    const fileInput = document.getElementById('upload-file-input');
+    
+    // Créer deux boutons pour choisir le mode
+    const uploadForm = document.getElementById('upload-form');
+    const inputContainer = fileInput.parentElement;
+    
+    // Remplacer par une interface avec deux options
+    inputContainer.innerHTML = `
+        <div class="space-y-3">
+            <div class="flex gap-2">
+                <button type="button" id="select-files-btn" 
+                        class="flex-1 px-4 py-2 bg-blue-100 text-blue-700 rounded-lg font-semibold hover:bg-blue-200 transition duration-150 border-2 border-blue-400">
+                    <i class="fas fa-file mr-2"></i> Fichiers
+                </button>
+                <button type="button" id="select-folder-btn" 
+                        class="flex-1 px-4 py-2 bg-slate-100 text-slate-700 rounded-lg font-semibold hover:bg-slate-200 transition duration-150 border-2 border-transparent">
+                    <i class="fas fa-folder mr-2"></i> Dossier
+                </button>
+            </div>
+            <input type="file" id="upload-file-input" name="file" required multiple
+                   class="w-full text-sm text-slate-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100 cursor-pointer">
+            <p class="text-xs text-slate-500">
+                <i class="fas fa-info-circle mr-1"></i>
+                <span id="upload-mode-text">Mode fichiers multiples sélectionné</span>
+            </p>
+        </div>
+    `;
+    
+    const newFileInput = document.getElementById('upload-file-input');
+    const selectFilesBtn = document.getElementById('select-files-btn');
+    const selectFolderBtn = document.getElementById('select-folder-btn');
+    const modeText = document.getElementById('upload-mode-text');
+    
+    // Gestion du mode fichiers
+    selectFilesBtn.addEventListener('click', () => {
+        newFileInput.removeAttribute('webkitdirectory');
+        newFileInput.removeAttribute('directory');
+        newFileInput.setAttribute('multiple', '');
+        selectFilesBtn.classList.remove('bg-slate-100', 'text-slate-700', 'border-transparent');
+        selectFilesBtn.classList.add('bg-blue-100', 'text-blue-700', 'border-blue-400');
+        selectFolderBtn.classList.remove('bg-yellow-100', 'text-yellow-700', 'border-yellow-400');
+        selectFolderBtn.classList.add('bg-slate-100', 'text-slate-700', 'border-transparent');
+        modeText.textContent = 'Mode fichiers multiples sélectionné';
     });
-
-    document.getElementById('upload-form').addEventListener('submit', handleUploadFormSubmit);
+    
+    // Gestion du mode dossier
+    selectFolderBtn.addEventListener('click', () => {
+        newFileInput.setAttribute('webkitdirectory', '');
+        newFileInput.setAttribute('directory', '');
+        newFileInput.removeAttribute('multiple');
+        selectFolderBtn.classList.remove('bg-slate-100', 'text-slate-700', 'border-transparent');
+        selectFolderBtn.classList.add('bg-yellow-100', 'text-yellow-700', 'border-yellow-400');
+        selectFilesBtn.classList.remove('bg-blue-100', 'text-blue-700', 'border-blue-400');
+        selectFilesBtn.classList.add('bg-slate-100', 'text-slate-700', 'border-transparent');
+        modeText.textContent = 'Mode dossier complet sélectionné';
+    });
+    
+    newFileInput.addEventListener('change', handleFileInputChange);
+    uploadForm.addEventListener('submit', handleUploadFormSubmit);
 }
 
 // --- LOGIQUE DE SUPPRESSION ---
@@ -837,7 +893,6 @@ function openRenameModal(currentName, path, isFolder) {
     contextMenu.classList.add('hidden');
     const title = `Renommer ${isFolder ? 'le dossier' : 'le fichier'}`;
     
-    // Extraire le nom sans extension pour les fichiers
     let nameWithoutExt = currentName;
     let extension = '';
     
@@ -876,7 +931,6 @@ function openRenameModal(currentName, path, isFolder) {
 
     document.getElementById('rename-form').addEventListener('submit', handleRenameSubmit);
     
-    // Sélectionner le texte dans l'input
     const input = document.getElementById('new-name');
     input.select();
 }
@@ -895,7 +949,6 @@ async function handleRenameSubmit(event) {
         return;
     }
 
-    // Ajouter l'extension pour les fichiers
     const newName = isFolder ? newNameInput : newNameInput + extension;
 
     try {
@@ -926,9 +979,6 @@ async function handleRenameSubmit(event) {
 
 // --- NOTIFICATIONS ---
 
-/**
- * Affiche une notification temporaire.
- */
 function showNotification(message, type = 'info') {
     const iconMap = {
         'success': 'fas fa-check-circle text-green-500',
@@ -975,7 +1025,6 @@ function closeMobileSearchModal() {
 // --- INITIALISATION ---
 
 window.onload = function init() {
-    // 1. Récupération des références DOM
     fileListBody = document.getElementById('file-list-body');
     pathDisplay = document.getElementById('path-display');
     modalOverlay = document.getElementById('modal-overlay');
@@ -985,9 +1034,6 @@ window.onload = function init() {
     mobileSearchModal = document.getElementById('mobile-search-modal');
     notificationContainer = document.getElementById('notification-container');
 
-    // 2. Attachement des événements
-
-    // Gestionnaires de tri
     document.querySelectorAll('.sortable-header').forEach(header => {
         header.addEventListener('click', () => {
             const column = header.getAttribute('data-column');
@@ -995,11 +1041,9 @@ window.onload = function init() {
         });
     });
 
-    // Formulaires de recherche
     document.getElementById('search-form-desktop').addEventListener('submit', handleSearchSubmit);
     document.getElementById('search-form-mobile').addEventListener('submit', handleSearchSubmit);
 
-    // Boutons d'action
     document.getElementById('desktop-create-folder-btn').addEventListener('click', openCreateFolderModal);
     document.getElementById('mobile-create-folder-btn').addEventListener('click', openCreateFolderModal);
     document.getElementById('desktop-upload-btn').addEventListener('click', openUploadModal);
@@ -1007,12 +1051,24 @@ window.onload = function init() {
     document.getElementById('mobile-search-btn').addEventListener('click', openMobileSearchModal);
     document.getElementById('mobile-close-search-btn').addEventListener('click', closeMobileSearchModal);
 
-    // 3. Charger le dossier initial
     const params = new URLSearchParams(window.location.search);
     const initialPath = params.get('path') || ROOT_PATH;
     navigateToFolder(initialPath);
     
-    // 4. Écouter les événements clavier
+    // Empêcher la fermeture de la page avec le bouton retour
+    window.history.pushState(null, '', window.location.href);
+    window.addEventListener('popstate', function(event) {
+        window.history.pushState(null, '', window.location.href);
+        
+        if (isSearchMode) {
+            exitSearchMode();
+        } else if (currentPath !== ROOT_PATH) {
+            navigateUp();
+        } else {
+            showNotification('Vous êtes déjà à la racine', 'info');
+        }
+    });
+    
     document.addEventListener('keydown', (e) => {
         if (e.key === 'Escape' && isModalOpen) {
             closeModal();

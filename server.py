@@ -13,13 +13,9 @@ from markupsafe import escape
 
 app = Flask(__name__, template_folder='templates')
 
-# Configuration du répertoire de base
 BASE_DIR = os.environ.get('FLASK_BASE_DIR', '/data')
-
-# Assurez-vous d'utiliser le chemin absolu final
 BASE_DIR = os.path.abspath(BASE_DIR)
 
-# Vérifier que le répertoire existe
 if not os.path.exists(BASE_DIR):
     print(f"ATTENTION: Le répertoire '{BASE_DIR}' n'existe pas. Il devrait être créé par Docker.")
 
@@ -27,33 +23,17 @@ if not os.path.isdir(BASE_DIR):
     print(f"ERREUR: '{BASE_DIR}' n'est pas un répertoire!")
     sys.exit(1)
 
-# Activer CORS pour le frontend
 CORS(app, resources={r"/api/*": {"origins": "*"}})
 
-# Extensions de fichiers autorisées pour le téléversement
-ALLOWED_EXTENSIONS = {
-    'txt', 'pdf', 'doc', 'docx', 'xls', 'xlsx', 'ppt', 'pptx',
-    'png', 'jpg', 'jpeg', 'gif', 'svg', 'webp',
-    'zip', 'rar', '7z', 'tar', 'gz',
-    'mp4', 'mov', 'avi', 'mkv',
-    'mp3', 'wav', 'flac',
-    'html', 'css', 'js', 'py', 'json', 'xml', 'log'
-}
+# Pas de restriction sur les extensions de fichiers
+ALLOWED_EXTENSIONS = None  # Toutes les extensions sont autorisées
 
 def secure_path_join(*paths):
-    """
-    Joint les chemins de manière sécurisée et vérifie qu'ils restent
-    dans le répertoire de base (BASE_DIR).
-    Retourne le chemin complet ou None si la vérification échoue.
-    """
-    # Créer le chemin absolu
+    """Joint les chemins de manière sécurisée et vérifie qu'ils restent dans BASE_DIR."""
     full_path = os.path.abspath(os.path.join(*paths))
-    
-    # Normaliser BASE_DIR pour une comparaison stricte
     normalized_base_dir = os.path.normpath(BASE_DIR)
     normalized_full_path = os.path.normpath(full_path)
 
-    # Vérification anti-traversée de répertoire
     if not normalized_full_path.startswith(normalized_base_dir):
         return None
     
@@ -92,9 +72,7 @@ def api_list():
             stat = os.stat(full_path)
 
             is_folder = os.path.isdir(full_path)
-
             mime_type = mimetypes.guess_type(full_path)[0] or 'application/octet-stream'
-
             full_relative_path = os.path.join(relative_path, name).replace('\\', '/') if relative_path else name
 
             files.append({
@@ -173,7 +151,6 @@ def api_search():
         "is_search_result": True
     })
 
-
 @app.route('/api/create_folder', methods=['POST'])
 def api_create_folder():
     """Crée un nouveau dossier."""
@@ -200,22 +177,18 @@ def api_create_folder():
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 
-
 @app.route('/api/upload', methods=['POST'])
 def api_upload():
-    """Gère le téléversement de fichiers."""
-    if 'file' not in request.files:
+    """Gère le téléversement de fichiers et de dossiers complets."""
+    if 'files' not in request.files:
         return jsonify({"error": "Aucun fichier dans la requête."}), 400
 
-    file = request.files['file']
+    files = request.files.getlist('files')
+    paths = request.form.getlist('paths')  # Chemins relatifs pour la structure de dossiers
     destination_path = request.form.get('path', '/')
 
-    if file.filename == '':
+    if not files:
         return jsonify({"error": "Aucun fichier sélectionné."}), 400
-
-    filename = secure_filename(file.filename)
-    if not '.' in filename or filename.rsplit('.', 1)[1].lower() not in ALLOWED_EXTENSIONS:
-        return jsonify({"error": "Type de fichier non autorisé."}), 400
 
     relative_path = destination_path.strip('/')
     target_dir = secure_path_join(BASE_DIR, relative_path)
@@ -223,14 +196,59 @@ def api_upload():
     if target_dir is None:
         return jsonify({"error": "Chemin de téléversement en dehors du répertoire géré."}), 400
 
+    uploaded_count = 0
+    errors = []
+
     try:
-        if not os.path.exists(target_dir):
-            os.makedirs(target_dir)
+        for i, file in enumerate(files):
+            if file.filename == '':
+                continue
 
-        save_path = os.path.join(target_dir, filename)
-        file.save(save_path)
+            # Vérifier si on a un chemin relatif (upload de dossier)
+            if paths and i < len(paths) and paths[i]:
+                # Mode dossier : préserver la structure
+                relative_file_path = paths[i]
+                file_dir = os.path.dirname(relative_file_path)
+                filename = os.path.basename(relative_file_path)
+                
+                # Créer la structure de dossiers
+                full_dir = secure_path_join(target_dir, file_dir)
+                
+                if full_dir is None:
+                    errors.append(f"Chemin invalide pour {relative_file_path}")
+                    continue
+                
+                if not os.path.exists(full_dir):
+                    os.makedirs(full_dir)
+                
+                save_path = os.path.join(full_dir, secure_filename(filename))
+            else:
+                # Mode fichiers simples : tout dans le même dossier
+                filename = secure_filename(file.filename)
+                
+                # Accepter tous les types de fichiers (pas de vérification d'extension)
+                
+                if not os.path.exists(target_dir):
+                    os.makedirs(target_dir)
+                
+                save_path = os.path.join(target_dir, filename)
+            
+            # Sauvegarder le fichier
+            try:
+                file.save(save_path)
+                uploaded_count += 1
+            except Exception as e:
+                errors.append(f"Erreur avec {filename}: {str(e)}")
 
-        return jsonify({"message": f"Fichier '{filename}' téléversé avec succès dans /{relative_path}."}), 201
+        # Préparer le message de réponse
+        if uploaded_count > 0:
+            message = f"{uploaded_count} fichier(s) téléversé(s) avec succès"
+            if errors:
+                message += f" ({len(errors)} erreur(s))"
+            return jsonify({"message": message, "errors": errors if errors else None}), 201
+        else:
+            return jsonify({"error": "Aucun fichier n'a pu être téléversé.", "errors": errors}), 400
+
     except Exception as e:
         print(f"Erreur lors du téléversement: {e}")
         return jsonify({"error": str(e)}), 500
@@ -278,22 +296,18 @@ def api_rename():
     if not old_path or not new_name:
         return jsonify({"error": "Chemin ou nouveau nom manquant."}), 400
 
-    # Sécuriser le nouveau nom
     new_name = secure_filename(new_name)
     if not new_name:
         return jsonify({"error": "Nouveau nom invalide."}), 400
 
-    # Construire les chemins complets
     full_old_path = secure_path_join(BASE_DIR, old_path)
     
     if full_old_path is None:
         return jsonify({"error": "Chemin source en dehors du répertoire géré."}), 400
 
-    # Le nouveau chemin est dans le même dossier que l'ancien
     parent_dir = os.path.dirname(full_old_path)
     full_new_path = os.path.join(parent_dir, new_name)
 
-    # Vérifier que le nouveau chemin est aussi sécurisé
     if not full_new_path.startswith(os.path.normpath(BASE_DIR)):
         return jsonify({"error": "Nouveau chemin en dehors du répertoire géré."}), 400
 
@@ -304,7 +318,6 @@ def api_rename():
         if os.path.exists(full_new_path):
             return jsonify({"error": f"Un fichier ou dossier nommé '{new_name}' existe déjà."}), 409
 
-        # Renommer
         os.rename(full_old_path, full_new_path)
         
         item_type = "Dossier" if os.path.isdir(full_new_path) else "Fichier"
@@ -323,7 +336,7 @@ def api_download():
     relative_path = request.args.get('path')
 
     if not relative_path or relative_path.endswith('/'):
-        return jsonify({"error": "Requête de téléchargement invalide (le chemin doit être un fichier). "}), 400
+        return jsonify({"error": "Requête de téléchargement invalide (le chemin doit être un fichier)."}), 400
 
     directory = os.path.dirname(relative_path)
     filename = os.path.basename(relative_path)
@@ -347,7 +360,7 @@ def api_view():
     relative_path = request.args.get('path')
 
     if not relative_path or relative_path.endswith('/'):
-        return jsonify({"error": "Requête de visualisation invalide (le chemin doit être un fichier). "}), 400
+        return jsonify({"error": "Requête de visualisation invalide (le chemin doit être un fichier)."}), 400
 
     full_path_to_file = secure_path_join(BASE_DIR, relative_path)
 
@@ -360,11 +373,9 @@ def api_view():
     try:
         mime_type = mimetypes.guess_type(full_path_to_file)[0] or 'application/octet-stream'
         
-        # Pour les fichiers texte, forcer le type MIME text/plain pour affichage brut
         if mime_type.startswith('text/') or mime_type == 'application/json' or relative_path.endswith(('.py', '.js', '.html', '.css', '.log', '.xml', '.md', '.yml', '.yaml', '.sh', '.bat')):
             mime_type = 'text/plain; charset=utf-8'
         
-        # Renvoyer le fichier directement
         return send_file(full_path_to_file, mimetype=mime_type, as_attachment=False)
 
     except Exception as e:
@@ -387,7 +398,6 @@ def media_player():
     filename = os.path.basename(relative_path)
     extension = filename.split('.')[-1].lower() if '.' in filename else ''
     
-    # Déterminer le type MIME approprié pour différents formats
     mime_map = {
         'mp4': 'video/mp4',
         'webm': 'video/webm',
@@ -407,7 +417,6 @@ def media_player():
     actual_mime = mime_map.get(extension, mime_type)
     media_url = f"/api/view?path={relative_path}"
     
-    # Message d'avertissement pour les formats non standards
     warning_message = ""
     unsupported_formats = ['mkv', 'avi', 'flv', 'wmv']
     if extension in unsupported_formats:
@@ -472,7 +481,6 @@ def media_player():
         </div>
         
         <script>
-            // Détecter si la vidéo ne peut pas être lue
             const mediaElement = document.querySelector('{tag}');
             if (mediaElement) {{
                 mediaElement.addEventListener('error', function(e) {{
