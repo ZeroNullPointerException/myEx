@@ -1,22 +1,24 @@
-/* * Fichier CSS externe pour le Gestionnaire de Fichiers.
- * Ces styles étaient précédemment dans <style> dans index.html.
+/* 
+ * Fichier CSS externe pour le Gestionnaire de Fichiers.
+ * Version améliorée avec ergonomie optimisée
  */
 
-/* Utilisation de la police Inter (déjà chargée par Tailwind CDN) */
-/* @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap'); */
-* { font-family: 'Inter', sans-serif; }
+/* Utilisation de la police Inter */
+* { 
+    font-family: 'Inter', sans-serif; 
+}
 
 body {
-    background-color: #f8fafc; /* Fond très clair */
+    background-color: #f8fafc;
     min-height: 100vh;
-    padding-bottom: 5rem; /* Espace pour la barre d'action mobile */
+    padding-bottom: 5rem;
 }
 
 /* Classe de base pour l'effet verre */
 .glass-card {
-    background: rgba(255, 255, 255, 0.9);
-    backdrop-filter: blur(5px);
-    border: 1px solid rgba(226, 232, 240, 0.7); /* border-slate-200 */
+    background: rgba(255, 255, 255, 0.95);
+    backdrop-filter: blur(8px);
+    border: 1px solid rgba(226, 232, 240, 0.7);
     box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -2px rgba(0, 0, 0, 0.1);
 }
 
@@ -25,7 +27,7 @@ body {
     position: fixed;
     bottom: 20px;
     right: 20px;
-    z-index: 50; /* z-50 */
+    z-index: 50;
     max-width: 90vw;
 }
 
@@ -45,9 +47,72 @@ body {
     bottom: 0;
     left: 0;
     right: 0;
-    z-index: 40; /* z-40 */
+    z-index: 40;
     padding: 0.5rem 1rem;
     box-shadow: 0 -4px 6px -1px rgba(0, 0, 0, 0.1), 0 -2px 4px -2px rgba(0, 0, 0, 0.06);
+}
+
+/* Styles pour les breadcrumbs */
+.breadcrumb-segment {
+    display: inline-block;
+    padding: 0.25rem 0.5rem;
+    border-radius: 0.375rem;
+    transition: all 0.15s ease;
+}
+
+.breadcrumb-segment:hover {
+    background-color: rgba(59, 130, 246, 0.1);
+}
+
+/* Amélioration des transitions sur les lignes du tableau */
+tbody tr {
+    transition: all 0.2s ease;
+}
+
+tbody tr:hover {
+    transform: translateX(2px);
+}
+
+/* Animation pour le bouton de menu contextuel */
+tbody tr .group-hover\:opacity-100 {
+    transition: opacity 0.2s ease, transform 0.2s ease;
+}
+
+tbody tr:hover .group-hover\:opacity-100 {
+    transform: scale(1.1);
+}
+
+/* Style pour le bouton de sortie de recherche */
+button[onclick*="exitSearchMode"] {
+    box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.1);
+}
+
+button[onclick*="exitSearchMode"]:hover {
+    box-shadow: 0 2px 4px 0 rgba(0, 0, 0, 0.15);
+    transform: translateY(-1px);
+}
+
+button[onclick*="exitSearchMode"]:active {
+    transform: translateY(0);
+}
+
+/* Amélioration visuelle du chargement */
+.fa-spinner {
+    animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+    from { transform: rotate(0deg); }
+    to { transform: rotate(360deg); }
+}
+
+/* Style pour les fichiers cliquables */
+tbody tr[onclick*="handleFileClick"] {
+    cursor: pointer;
+}
+
+tbody tr[onclick*="handleFileClick"]:active {
+    transform: scale(0.98);
 }
 
 /* Styles pour les en-têtes de tableau (tri) */
@@ -59,13 +124,13 @@ body {
     transition: opacity 0.2s;
 }
 
-/* Afficher l'icône de tri par défaut au survol */
+/* Afficher l'icône de tri au survol */
 .sortable-header:hover .sort-icon {
     visibility: visible;
     opacity: 1;
 }
 
-/* Rendre l'icône visible pour la colonne actuellement triée */
+/* Rendre l'icône visible pour la colonne triée */
 .sortable-header.sort-asc .sort-icon,
 .sortable-header.sort-desc .sort-icon {
     visibility: visible;
@@ -75,24 +140,24 @@ body {
 /* Colorer la colonne triée */
 .sortable-header.sort-asc,
 .sortable-header.sort-desc {
-    background-color: #f0f4f8; /* bg-slate-100 */
+    background-color: #f0f4f8;
 }
 
-/* Styles pour l'affichage de code (utilisé dans la fonction viewFile) */
+/* Styles pour l'affichage de code */
 
 .code-viewer-container {
     padding: 0;
-    margin: -1.5rem; /* Compense le padding de la modale pour le plein cadre */
+    margin: -1.5rem;
     max-height: 70vh;
     overflow-y: auto;
     background-color: #ffffff;
-    border-radius: 0 0 0.75rem 0.75rem; /* Coins inférieurs ronds */
+    border-radius: 0 0 0.75rem 0.75rem;
 }
 
 .code-viewer-header {
-    background-color: #f1f5f9; /* bg-slate-100 */
+    background-color: #f1f5f9;
     padding: 0.75rem 1.5rem;
-    border-bottom: 1px solid #e2e8f0; /* border-slate-200 */
+    border-bottom: 1px solid #e2e8f0;
 }
 
 .code-line {
@@ -101,12 +166,12 @@ body {
 }
 
 .line-number {
-    color: #94a3b8; /* text-slate-400 */
+    color: #94a3b8;
     padding: 0 15px 0 1.5rem;
     user-select: none;
     text-align: right;
     flex-shrink: 0;
-    min-width: 50px; /* Assure un espace minimal */
+    min-width: 50px;
 }
 
 .line-content {
@@ -117,12 +182,156 @@ body {
 
 /* Alternance de couleur pour la lecture */
 .code-line:nth-child(even) { 
-    background-color: #f8fafc; /* bg-slate-50 */
+    background-color: #f8fafc;
 }
 
 .code-viewer-content {
     padding: 0;
     font-family: 'Consolas', 'Courier New', monospace;
     font-size: 0.9rem;
-    white-space: pre; /* Maintient les espaces et les sauts de ligne */
+    white-space: pre;
+}
+
+/* Amélioration de la modal */
+.modal-overlay {
+    backdrop-filter: blur(2px);
+}
+
+/* Amélioration des boutons */
+button {
+    transition: all 0.15s ease;
+}
+
+button:active {
+    transform: scale(0.97);
+}
+
+/* Amélioration du menu contextuel */
+.context-menu-container {
+    animation: contextMenuFadeIn 0.15s ease;
+}
+
+@keyframes contextMenuFadeIn {
+    from {
+        opacity: 0;
+        transform: scale(0.95);
+    }
+    to {
+        opacity: 1;
+        transform: scale(1);
+    }
+}
+
+/* Style pour le dossier "Remonter" */
+tbody tr[onclick*="navigateToFolder"] {
+    font-weight: 500;
+}
+
+/* Amélioration responsive */
+@media (max-width: 640px) {
+    .breadcrumb-segment {
+        font-size: 0.875rem;
+        padding: 0.125rem 0.375rem;
+    }
+    
+    tbody tr:hover {
+        transform: none;
+    }
+    
+    .notification-container {
+        bottom: 80px;
+        right: 10px;
+        left: 10px;
+        max-width: none;
+    }
+}
+
+/* Animation de pulsation pour les éléments de chargement */
+@keyframes pulse {
+    0%, 100% {
+        opacity: 1;
+    }
+    50% {
+        opacity: 0.5;
+    }
+}
+
+.animate-pulse {
+    animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+}
+
+/* Style pour les icônes de fichiers */
+tbody td i {
+    transition: transform 0.15s ease;
+}
+
+tbody tr:hover td i {
+    transform: scale(1.1);
+}
+
+/* Amélioration du focus pour l'accessibilité */
+input:focus,
+button:focus {
+    outline: 2px solid rgba(59, 130, 246, 0.5);
+    outline-offset: 2px;
+}
+
+/* Style pour les chemins de recherche */
+#path-display {
+    position: relative;
+    overflow: visible;
+}
+
+/* Scrollbar personnalisée */
+::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+}
+
+::-webkit-scrollbar-track {
+    background: #f1f5f9;
+    border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb {
+    background: #cbd5e1;
+    border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+    background: #94a3b8;
+}
+
+/* Animation d'entrée pour les lignes du tableau */
+@keyframes slideIn {
+    from {
+        opacity: 0;
+        transform: translateY(-10px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+tbody tr {
+    animation: slideIn 0.2s ease;
+}
+
+/* Style pour les états hover des boutons d'action */
+.mobile-actions button:active {
+    background-color: rgba(0, 0, 0, 0.05);
+    border-radius: 0.5rem;
+}
+
+/* Amélioration des ombres pour plus de profondeur */
+.glass-card:hover {
+    box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+}
+
+/* Style pour les notifications en mobile */
+@media (max-width: 640px) {
+    .notification-container > div {
+        width: 100%;
+    }
 }
