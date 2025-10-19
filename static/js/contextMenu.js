@@ -1,4 +1,3 @@
-
 // ============================================
 // contextMenu.js - Menu contextuel
 // ============================================
@@ -48,6 +47,21 @@ const contextMenu = {
             </div>
         `;
 
+        // -------------------------------------------------------------
+        // LOGIQUE CONDITIONNELLE POUR LE BOUTON "ALLER AU DOSSIER PARENT"
+        // Le bouton n'est affiché que si le gestionnaire est en mode recherche
+        let parentButtonHtml = '';
+        if (typeof state !== 'undefined' && state.isSearchMode) { 
+            parentButtonHtml = `
+                <div class="border-t border-slate-100 my-1"></div>
+                <button onclick="contextMenu.hide(); navigation.navigateToFolder(utils.getParentPath('${file.path}'))" 
+                        class="flex items-center w-full px-3 py-2 text-sm text-slate-700 hover:bg-blue-50 transition duration-150">
+                    <i class="fas fa-level-up-alt mr-2 w-4"></i> Aller au dossier parent
+                </button>
+            `;
+        }
+        // -------------------------------------------------------------
+        
         if (file.isFolder) {
             html += `
                 <button onclick="navigation.navigateToFolder('/${file.path}')" class="flex items-center w-full px-3 py-2 text-sm text-slate-700 hover:bg-blue-50 transition duration-150">
@@ -56,7 +70,8 @@ const contextMenu = {
                 <button onclick="folderActions.openRenameModal('${file.name}', '${file.path}', true)" class="flex items-center w-full px-3 py-2 text-sm text-slate-700 hover:bg-blue-50 transition duration-150">
                     <i class="fas fa-edit mr-2 w-4"></i> Renommer
                 </button>
-                <div class="border-t border-slate-100 my-1"></div>
+                
+                ${parentButtonHtml} <div class="border-t border-slate-100 my-1"></div>
                 <button onclick="fileActions.confirmDelete('${file.name}', '${file.path}')" class="flex items-center w-full px-3 py-2 text-sm text-red-600 hover:bg-red-50 transition duration-150">
                     <i class="fas fa-trash-alt mr-2 w-4"></i> Supprimer le dossier
                 </button>
@@ -79,7 +94,8 @@ const contextMenu = {
                 <button onclick="folderActions.openRenameModal('${file.name}', '${file.path}', false)" class="flex items-center w-full px-3 py-2 text-sm text-slate-700 hover:bg-blue-50 transition duration-150">
                     <i class="fas fa-edit mr-2 w-4"></i> Renommer
                 </button>
-                <div class="border-t border-slate-100 my-1"></div>
+                
+                ${parentButtonHtml} <div class="border-t border-slate-100 my-1"></div>
                 <button onclick="fileActions.confirmDelete('${file.name}', '${file.path}')" class="flex items-center w-full px-3 py-2 text-sm text-red-600 hover:bg-red-50 transition duration-150">
                     <i class="fas fa-trash-alt mr-2 w-4"></i> Supprimer le fichier
                 </button>

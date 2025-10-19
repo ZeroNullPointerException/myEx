@@ -45,13 +45,21 @@ const navigation = {
         }
     },
 
-    navigateUp() {
+	navigateUp() {
         if (state.currentPath === ROOT_PATH) {
             notifications.show("Vous êtes déjà à la racine", 'info');
             return;
         }
         
         const parentPath = utils.getParentPath(state.currentPath);
+        navigation.navigateToFolder(parentPath);
+    }, 
+    
+    // NOUVELLE FONCTION POUR LE MENU CONTEXTUEL
+    navigateToParentOf(itemPath) {
+        contextMenu.hide();
+        const parentPath = utils.getParentPath(itemPath);
+        
         navigation.navigateToFolder(parentPath);
     }
 };
