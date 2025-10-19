@@ -504,8 +504,9 @@
             r.assertExists(contextMenu.generateHtml, 'generateHtml doit exister');
         });
 
-        runner.test('contextMenu.js', 'generateHtml génère du HTML', (r) => {
-            const file = { name: 'test.txt', path: '/test.txt', isFolder: false };
+		runner.test('contextMenu.js', 'generateHtml génère du HTML', (r) => {
+            // MODIFICATION: Ajout de mimeType à l'objet de test
+            const file = { name: 'test.txt', path: '/test.txt', isFolder: false, mimeType: 'text/plain' };
             const html = contextMenu.generateHtml(file);
             r.assert(html.includes('test.txt'), 'HTML doit contenir le nom du fichier');
             r.assert(html.includes('button'), 'HTML doit contenir des boutons');
