@@ -335,8 +335,47 @@ def media_player():
         return "Type de média non supporté par ce lecteur.", 400
 
     tag = 'video' if mime_type.startswith('video/') else 'audio'
+    filename = os.path.basename(relative_path)
+    extension = filename.split('.')[-1].lower() if '.' in filename else ''
     
+    # Déterminer le type MIME approprié pour différents formats
+    mime_map = {
+        'mp4': 'video/mp4',
+        'webm': 'video/webm',
+        'ogg': 'video/ogg',
+        'mkv': 'video/x-matroska',
+        'avi': 'video/x-msvideo',
+        'mov': 'video/quicktime',
+        'flv': 'video/x-flv',
+        'wmv': 'video/x-ms-wmv',
+        'mp3': 'audio/mpeg',
+        'wav': 'audio/wav',
+        'flac': 'audio/flac',
+        'ogg': 'audio/ogg',
+        'm4a': 'audio/mp4'
+    }
+    
+    actual_mime = mime_map.get(extension, mime_type)
     media_url = f"/api/view?path={relative_path}"
+    
+    # Message d'avertissement pour les formats non standards
+    warning_message = ""
+    unsupported_formats = ['mkv', 'avi', 'flv', 'wmv']
+    if extension in unsupported_formats:
+        warning_message = f"""
+        <div class="bg-yellow-900/50 border border-yellow-600 text-yellow-200 px-4 py-3 rounded-lg mb-4 max-w-4xl">
+            <div class="flex items-start">
+                <i class="fas fa-exclamation-triangle text-yellow-400 mr-3 mt-1"></i>
+                <div>
+                    <p class="font-bold">Format non supporté nativement</p>
+                    <p class="text-sm mt-1">
+                        Les fichiers .{extension} ne sont pas supportés par la plupart des navigateurs web.
+                        <br>Veuillez télécharger le fichier et l'ouvrir avec un lecteur vidéo comme VLC.
+                    </p>
+                </div>
+            </div>
+        </div>
+        """
     
     html_content = f"""
     <!DOCTYPE html>
@@ -344,18 +383,69 @@ def media_player():
     <head>
         <meta charset="UTF-8">
         <meta name="viewport" content="width=device-width, initial-scale=1.0">
-        <title>Lecteur Média: {os.path.basename(relative_path)}</title>
+        <title>Lecteur Média: {filename}</title>
         <script src="https://cdn.tailwindcss.com"></script>
+        <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css" crossorigin="anonymous" referrerpolicy="no-referrer" />
     </head>
     <body class="bg-gray-900 min-h-screen flex flex-col items-center justify-center p-4">
-        <h1 class="text-xl font-bold text-white mb-6 text-center">{os.path.basename(relative_path)}</h1>
-        <{tag} controls class="w-full max-w-4xl shadow-2xl rounded-lg overflow-hidden" {"autoplay" if tag == 'video' else ""}>
-            <source src="{media_url}" type="{mime_type}">
-            Votre navigateur ne supporte pas la balise {tag}.
-        </{tag}>
-        <a href="/api/download?path={relative_path}" class="mt-6 text-blue-400 hover:text-blue-200 transition duration-150">
-            Télécharger le fichier
-        </a>
+        <div class="w-full max-w-4xl">
+            <h1 class="text-xl font-bold text-white mb-4 text-center break-words">{filename}</h1>
+            
+            {warning_message}
+            
+            <{tag} controls class="w-full shadow-2xl rounded-lg overflow-hidden bg-black" {"autoplay" if tag == 'video' else ""} preload="metadata">
+                <source src="{media_url}" type="{actual_mime}">
+                <p class="text-white p-4">
+                    Votre navigateur ne supporte pas la lecture de ce format.
+                    <br>Veuillez télécharger le fichier ci-dessous.
+                </p>
+            </{tag}>
+            
+            <div class="flex justify-center gap-4 mt-6">
+                <a href="/api/download?path={relative_path}" 
+                   class="flex items-center gap-2 px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition duration-150 font-semibold shadow-lg">
+                    <i class="fas fa-download"></i>
+                    <span>Télécharger le fichier</span>
+                </a>
+                <button onclick="window.close()" 
+                        class="flex items-center gap-2 px-6 py-3 bg-gray-700 text-white rounded-lg hover:bg-gray-600 transition duration-150 font-semibold shadow-lg">
+                    <i class="fas fa-times"></i>
+                    <span>Fermer</span>
+                </button>
+            </div>
+            
+            <div class="mt-6 text-center">
+                <p class="text-gray-400 text-sm">
+                    <i class="fas fa-info-circle mr-1"></i>
+                    Formats supportés nativement: MP4, WebM, OGG (vidéo) | MP3, WAV, FLAC, OGG (audio)
+                </p>
+            </div>
+        </div>
+        
+        <script>
+            // Détecter si la vidéo ne peut pas être lue
+            const mediaElement = document.querySelector('{tag}');
+            if (mediaElement) {{
+                mediaElement.addEventListener('error', function(e) {{
+                    console.error('Erreur de lecture média:', e);
+                    const errorDiv = document.createElement('div');
+                    errorDiv.className = 'bg-red-900/50 border border-red-600 text-red-200 px-4 py-3 rounded-lg mt-4';
+                    errorDiv.innerHTML = `
+                        <div class="flex items-start">
+                            <i class="fas fa-times-circle text-red-400 mr-3 mt-1"></i>
+                            <div>
+                                <p class="font-bold">Impossible de lire ce fichier</p>
+                                <p class="text-sm mt-1">
+                                    Le navigateur ne peut pas décoder ce format vidéo.
+                                    <br>Utilisez le bouton "Télécharger" et ouvrez le fichier avec VLC ou un autre lecteur.
+                                </p>
+                            </div>
+                        </div>
+                    `;
+                    mediaElement.parentElement.insertBefore(errorDiv, mediaElement.nextSibling);
+                }});
+            }}
+        </script>
     </body>
     </html>
     """
