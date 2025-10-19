@@ -1,0 +1,596 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Tests - Gestionnaire de Fichiers</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css" />
+    <style>
+        .test-pass { color: #10b981; }
+        .test-fail { color: #ef4444; }
+        .test-pending { color: #f59e0b; }
+        #console-log {
+            font-family: 'Courier New', monospace;
+            font-size: 12px;
+            max-height: 400px;
+            overflow-y: auto;
+            white-space: pre-wrap;
+            word-wrap: break-word;
+        }
+        .log-error { color: #ef4444; }
+        .log-warn { color: #f59e0b; }
+        .log-info { color: #3b82f6; }
+        .log-success { color: #10b981; }
+    </style>
+</head>
+<body class="bg-slate-50 p-8">
+    <div class="max-w-6xl mx-auto">
+        <div class="bg-white rounded-xl shadow-lg p-6 mb-6">
+            <h1 class="text-3xl font-bold text-slate-800 mb-2">
+                <i class="fas fa-flask mr-3 text-blue-600"></i>
+                Suite de Tests - Modules JS
+            </h1>
+            <p class="text-slate-600">Vérification automatique de l'intégrité des modules</p>
+        </div>
+
+        <div id="test-summary" class="bg-white rounded-xl shadow-lg p-6 mb-6">
+            <div class="grid grid-cols-3 gap-4 text-center">
+                <div>
+                    <div class="text-3xl font-bold text-green-600" id="pass-count">0</div>
+                    <div class="text-sm text-slate-600">Tests Réussis</div>
+                </div>
+                <div>
+                    <div class="text-3xl font-bold text-red-600" id="fail-count">0</div>
+                    <div class="text-sm text-slate-600">Tests Échoués</div>
+                </div>
+                <div>
+                    <div class="text-3xl font-bold text-slate-600" id="total-count">0</div>
+                    <div class="text-sm text-slate-600">Total</div>
+                </div>
+            </div>
+            <div class="mt-4">
+                <div class="w-full bg-slate-200 rounded-full h-4">
+                    <div id="progress-bar" class="bg-green-600 h-4 rounded-full transition-all duration-300" style="width: 0%"></div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Console de logs -->
+        <div class="bg-slate-900 rounded-xl shadow-lg p-4 mb-6">
+            <div class="flex justify-between items-center mb-3">
+                <h2 class="text-white font-bold flex items-center gap-2">
+                    <i class="fas fa-terminal"></i>
+                    Console de Logs
+                </h2>
+                <div class="flex gap-2">
+                    <button onclick="copyLogs()" class="px-3 py-1 bg-blue-600 text-white rounded text-sm hover:bg-blue-700 transition">
+                        <i class="fas fa-copy mr-1"></i> Copier
+                    </button>
+                    <button onclick="clearLogs()" class="px-3 py-1 bg-slate-700 text-white rounded text-sm hover:bg-slate-600 transition">
+                        <i class="fas fa-trash mr-1"></i> Effacer
+                    </button>
+                </div>
+            </div>
+            <div id="console-log" class="bg-slate-800 rounded p-3 text-slate-300"></div>
+        </div>
+
+        <div id="test-results" class="space-y-4"></div>
+
+        <div class="mt-6 text-center">
+            <button onclick="runTests()" class="px-6 py-3 bg-blue-600 text-white rounded-lg font-semibold hover:bg-blue-700 transition shadow-lg">
+                <i class="fas fa-play mr-2"></i>
+                Relancer les Tests
+            </button>
+        </div>
+    </div>
+
+    <!-- Mock DOM elements nécessaires pour les tests -->
+    <div style="display: none;">
+        <div id="file-list-body"></div>
+        <div id="path-display"></div>
+        <div id="modal-overlay"></div>
+        <div id="modal-title"></div>
+        <div id="modal-content"></div>
+        <div id="context-menu"></div>
+        <div id="mobile-search-modal"></div>
+        <div id="notification-container"></div>
+        <form id="search-form-desktop"></form>
+        <form id="search-form-mobile"></form>
+        <button id="desktop-create-folder-btn"></button>
+        <button id="mobile-create-folder-btn"></button>
+        <button id="desktop-upload-btn"></button>
+        <button id="mobile-upload-btn"></button>
+        <button id="mobile-search-btn"></button>
+        <button id="mobile-close-search-btn"></button>
+        <div class="sortable-header" data-column="name">
+            <span class="sort-icon"></span>
+        </div>
+    </div>
+
+    <!-- CHARGEMENT DES MODULES DANS LE BON ORDRE -->
+    <script>
+        // Système de logs amélioré
+        const consoleLog = document.getElementById('console-log');
+        const originalConsole = {
+            log: console.log,
+            error: console.error,
+            warn: console.warn,
+            info: console.info
+        };
+
+        function addLog(message, type = 'info') {
+            const timestamp = new Date().toLocaleTimeString();
+            const logClass = `log-${type}`;
+            const icon = {
+                error: '❌',
+                warn: '⚠️',
+                info: 'ℹ️',
+                success: '✅'
+            }[type] || 'ℹ️';
+            
+            const logEntry = document.createElement('div');
+            logEntry.className = logClass;
+            logEntry.textContent = `[${timestamp}] ${icon} ${message}`;
+            consoleLog.appendChild(logEntry);
+            consoleLog.scrollTop = consoleLog.scrollHeight;
+            
+            // Garder aussi la console originale
+            originalConsole.log(message);
+        }
+
+        // Intercepter les erreurs globales
+        window.addEventListener('error', (event) => {
+            addLog(`ERREUR GLOBALE: ${event.message} (${event.filename}:${event.lineno})`, 'error');
+        });
+
+        // Override console methods
+        console.log = (...args) => {
+            addLog(args.join(' '), 'info');
+            originalConsole.log(...args);
+        };
+        console.error = (...args) => {
+            addLog(args.join(' '), 'error');
+            originalConsole.error(...args);
+        };
+        console.warn = (...args) => {
+            addLog(args.join(' '), 'warn');
+            originalConsole.warn(...args);
+        };
+
+        function copyLogs() {
+            const text = consoleLog.innerText;
+            navigator.clipboard.writeText(text).then(() => {
+                alert('Logs copiés dans le presse-papier !');
+            });
+        }
+
+        function clearLogs() {
+            consoleLog.innerHTML = '';
+            addLog('Console effacée', 'info');
+        }
+
+        addLog('=== DÉBUT DU CHARGEMENT DES MODULES ===', 'info');
+    </script>
+
+    <!-- 1. Configuration -->
+    <script src="{{ url_for('static', filename='js/config.js') }}"></script>
+    <script>addLog('✓ config.js chargé', 'success');</script>
+    
+    <!-- 2. Utilitaires -->
+    <script src="{{ url_for('static', filename='js/utils.js') }}"></script>
+    <script>addLog('✓ utils.js chargé', 'success');</script>
+    
+    <!-- 3. Notifications -->
+    <script src="{{ url_for('static', filename='js/notifications.js') }}"></script>
+    <script>addLog('✓ notifications.js chargé', 'success');</script>
+    
+    <!-- 4. Modal -->
+    <script src="{{ url_for('static', filename='js/modal.js') }}"></script>
+    <script>addLog('✓ modal.js chargé', 'success');</script>
+    
+    <!-- 5. Mobile -->
+    <script src="{{ url_for('static', filename='js/mobile.js') }}"></script>
+    <script>addLog('✓ mobile.js chargé', 'success');</script>
+    
+    <!-- 6. Sorting -->
+    <script src="{{ url_for('static', filename='js/sorting.js') }}"></script>
+    <script>addLog('✓ sorting.js chargé', 'success');</script>
+    
+    <!-- 7. UI -->
+    <script src="{{ url_for('static', filename='js/ui.js') }}"></script>
+    <script>addLog('✓ ui.js chargé', 'success');</script>
+    
+    <!-- 8. Navigation -->
+    <script src="{{ url_for('static', filename='js/navigation.js') }}"></script>
+    <script>addLog('✓ navigation.js chargé', 'success');</script>
+    
+    <!-- 9. Search -->
+    <script src="{{ url_for('static', filename='js/search.js') }}"></script>
+    <script>addLog('✓ search.js chargé', 'success');</script>
+    
+    <!-- 10. File Actions -->
+    <script src="{{ url_for('static', filename='js/fileActions.js') }}"></script>
+    <script>addLog('✓ fileActions.js chargé', 'success');</script>
+    
+    <!-- 11. Folder Actions -->
+    <script src="{{ url_for('static', filename='js/folderActions.js') }}"></script>
+    <script>addLog('✓ folderActions.js chargé', 'success');</script>
+    
+    <!-- 12. Upload -->
+    <script src="{{ url_for('static', filename='js/upload.js') }}"></script>
+    <script>addLog('✓ upload.js chargé', 'success');</script>
+    
+    <!-- 13. Context Menu -->
+    <script src="{{ url_for('static', filename='js/contextMenu.js') }}"></script>
+    <script>addLog('✓ contextMenu.js chargé', 'success');</script>
+    
+    <!-- 14. App -->
+    <script src="{{ url_for('static', filename='js/app.js') }}"></script>
+    <script>addLog('✓ app.js chargé', 'success');</script>
+
+    <script>
+        addLog('=== TOUS LES MODULES CHARGÉS ===', 'success');
+        addLog('', 'info');
+        addLog('Vérification de la disponibilité des modules...', 'info');
+        
+        // Vérification de la présence des modules
+        const modules = [
+            'API_BASE', 'ROOT_PATH', 'state', 'dom',
+            'utils', 'notifications', 'modal', 'mobile', 
+            'sorting', 'ui', 'navigation', 'search',
+            'fileActions', 'folderActions', 'upload', 
+            'contextMenu', 'app'
+        ];
+
+        modules.forEach(moduleName => {
+            if (typeof window[moduleName] !== 'undefined') {
+                addLog(`✓ ${moduleName} est défini`, 'success');
+            } else {
+                addLog(`✗ ${moduleName} N'EST PAS DÉFINI !`, 'error');
+            }
+        });
+
+        addLog('', 'info');
+        addLog('=== DÉBUT DES TESTS ===', 'info');
+    </script>
+
+    <script>
+        // Framework de tests amélioré
+        class TestRunner {
+            constructor() {
+                this.tests = [];
+                this.passCount = 0;
+                this.failCount = 0;
+            }
+
+            test(moduleName, testName, testFn) {
+                this.tests.push({ moduleName, testName, testFn });
+            }
+
+            assert(condition, message) {
+                if (!condition) {
+                    throw new Error(message || 'Assertion échouée');
+                }
+            }
+
+            assertEquals(actual, expected, message) {
+                if (actual !== expected) {
+                    throw new Error(message || `Attendu: ${expected}, Reçu: ${actual}`);
+                }
+            }
+
+            assertExists(value, message) {
+                if (value === undefined || value === null) {
+                    throw new Error(message || 'La valeur n\'existe pas');
+                }
+            }
+
+            assertType(value, type, message) {
+                if (typeof value !== type) {
+                    throw new Error(message || `Type attendu: ${type}, Type reçu: ${typeof value}`);
+                }
+            }
+
+            async run() {
+                this.passCount = 0;
+                this.failCount = 0;
+                const resultsContainer = document.getElementById('test-results');
+                resultsContainer.innerHTML = '';
+
+                addLog('', 'info');
+                addLog(`Exécution de ${this.tests.length} tests...`, 'info');
+
+                for (const test of this.tests) {
+                    const testElement = document.createElement('div');
+                    testElement.className = 'bg-white rounded-lg shadow p-4';
+                    
+                    try {
+                        await test.testFn(this);
+                        this.passCount++;
+                        testElement.innerHTML = `
+                            <div class="flex items-center justify-between">
+                                <div class="flex items-center gap-3">
+                                    <i class="fas fa-check-circle text-2xl test-pass"></i>
+                                    <div>
+                                        <div class="font-semibold text-slate-800">${test.moduleName}</div>
+                                        <div class="text-sm text-slate-600">${test.testName}</div>
+                                    </div>
+                                </div>
+                                <span class="px-3 py-1 bg-green-100 text-green-700 rounded-full text-sm font-medium">
+                                    Réussi
+                                </span>
+                            </div>
+                        `;
+                        addLog(`✓ ${test.moduleName} - ${test.testName}`, 'success');
+                    } catch (error) {
+                        this.failCount++;
+                        testElement.innerHTML = `
+                            <div class="bg-red-50 rounded-lg p-4">
+                                <div class="flex items-start justify-between mb-2">
+                                    <div class="flex items-center gap-3">
+                                        <i class="fas fa-times-circle text-2xl test-fail"></i>
+                                        <div>
+                                            <div class="font-semibold text-slate-800">${test.moduleName}</div>
+                                            <div class="text-sm text-slate-600">${test.testName}</div>
+                                        </div>
+                                    </div>
+                                    <span class="px-3 py-1 bg-red-100 text-red-700 rounded-full text-sm font-medium">
+                                        Échoué
+                                    </span>
+                                </div>
+                                <div class="mt-3 p-3 bg-white rounded border border-red-200">
+                                    <div class="text-xs font-mono text-red-700 whitespace-pre-wrap">${error.message}</div>
+                                    ${error.stack ? `<details class="mt-2">
+                                        <summary class="text-xs text-slate-600 cursor-pointer hover:text-slate-800">Stack trace</summary>
+                                        <pre class="text-xs text-slate-600 mt-2 overflow-x-auto">${error.stack}</pre>
+                                    </details>` : ''}
+                                </div>
+                            </div>
+                        `;
+                        addLog(`✗ ${test.moduleName} - ${test.testName}: ${error.message}`, 'error');
+                        console.error('Stack:', error.stack);
+                    }
+                    
+                    resultsContainer.appendChild(testElement);
+                }
+
+                this.updateSummary();
+                
+                addLog('', 'info');
+                addLog(`=== TESTS TERMINÉS: ${this.passCount}/${this.tests.length} réussis ===`, 
+                    this.failCount === 0 ? 'success' : 'error');
+            }
+
+            updateSummary() {
+                const total = this.passCount + this.failCount;
+                document.getElementById('pass-count').textContent = this.passCount;
+                document.getElementById('fail-count').textContent = this.failCount;
+                document.getElementById('total-count').textContent = total;
+                
+                const percentage = total > 0 ? (this.passCount / total) * 100 : 0;
+                document.getElementById('progress-bar').style.width = percentage + '%';
+                
+                if (percentage === 100) {
+                    document.getElementById('progress-bar').className = 'bg-green-600 h-4 rounded-full transition-all duration-300';
+                } else if (percentage >= 50) {
+                    document.getElementById('progress-bar').className = 'bg-yellow-600 h-4 rounded-full transition-all duration-300';
+                } else {
+                    document.getElementById('progress-bar').className = 'bg-red-600 h-4 rounded-full transition-all duration-300';
+                }
+            }
+        }
+
+        const runner = new TestRunner();
+
+        // ===== TESTS CONFIG =====
+        runner.test('config.js', 'Vérifie que les constantes sont définies', (r) => {
+            r.assertEquals(API_BASE, '/api', 'API_BASE doit être "/api"');
+            r.assertEquals(ROOT_PATH, '/', 'ROOT_PATH doit être "/"');
+        });
+
+        runner.test('config.js', 'Vérifie que l\'état global existe', (r) => {
+            r.assertExists(state, 'state doit exister');
+            r.assertExists(state.currentPath, 'state.currentPath doit exister');
+            r.assertEquals(state.currentPath, ROOT_PATH, 'currentPath initial doit être ROOT_PATH');
+        });
+
+        runner.test('config.js', 'Vérifie que les références DOM existent', (r) => {
+            r.assertExists(dom, 'dom doit exister');
+            r.assertType(dom, 'object', 'dom doit être un objet');
+        });
+
+        // ===== TESTS UTILS =====
+        runner.test('utils.js', 'buildApiUrl génère des URLs correctes', (r) => {
+            const url = utils.buildApiUrl('list', '/test');
+            r.assert(url.includes('/api/list'), 'URL doit contenir /api/list');
+            r.assert(url.includes('path='), 'URL doit contenir le paramètre path');
+        });
+
+        runner.test('utils.js', 'getParentPath fonctionne correctement', (r) => {
+            r.assertEquals(utils.getParentPath('/test/folder'), '/test', 'Doit remonter d\'un niveau');
+            r.assertEquals(utils.getParentPath('/test'), '/', 'Doit retourner la racine');
+            r.assertEquals(utils.getParentPath('/'), '/', 'Racine doit rester racine');
+        });
+
+        runner.test('utils.js', 'formatBytes formate correctement', (r) => {
+            r.assertEquals(utils.formatBytes(0), '0 Bytes', 'Zéro octet');
+            r.assert(utils.formatBytes(1024).includes('KB'), 'Doit convertir en KB');
+            r.assert(utils.formatBytes(1048576).includes('MB'), 'Doit convertir en MB');
+        });
+
+        runner.test('utils.js', 'getFileIcon retourne une icône', (r) => {
+            const icon = utils.getFileIcon('test.pdf');
+            r.assert(icon.includes('fa-file-pdf'), 'PDF doit avoir l\'icône PDF');
+            r.assert(icon.includes('text-red-600'), 'PDF doit avoir la couleur rouge');
+        });
+
+        // ===== TESTS NAVIGATION =====
+        runner.test('navigation.js', 'Module navigation existe', (r) => {
+            r.assertExists(navigation, 'navigation doit exister');
+            r.assertExists(navigation.navigateToFolder, 'navigateToFolder doit exister');
+            r.assertExists(navigation.navigateUp, 'navigateUp doit exister');
+        });
+
+        runner.test('navigation.js', 'navigateUp est une fonction', (r) => {
+            r.assertType(navigation.navigateUp, 'function', 'navigateUp doit être une fonction');
+        });
+
+        // ===== TESTS UI =====
+        runner.test('ui.js', 'Module ui existe', (r) => {
+            r.assertExists(ui, 'ui doit exister');
+            r.assertExists(ui.showLoading, 'showLoading doit exister');
+            r.assertExists(ui.hideLoading, 'hideLoading doit exister');
+            r.assertExists(ui.renderFileList, 'renderFileList doit exister');
+        });
+
+        runner.test('ui.js', 'showLoading affiche le chargement', (r) => {
+            const mockBody = document.getElementById('file-list-body');
+            dom.fileListBody = mockBody;
+            ui.showLoading();
+            r.assert(mockBody.innerHTML.includes('Chargement'), 'Doit afficher le texte de chargement');
+            r.assert(mockBody.innerHTML.includes('fa-spinner'), 'Doit afficher le spinner');
+        });
+
+        // ===== TESTS SORTING =====
+        runner.test('sorting.js', 'Module sorting existe', (r) => {
+            r.assertExists(sorting, 'sorting doit exister');
+            r.assertExists(sorting.compareFiles, 'compareFiles doit exister');
+            r.assertExists(sorting.handleSort, 'handleSort doit exister');
+            r.assertExists(sorting.updateIndicators, 'updateIndicators doit exister');
+        });
+
+        runner.test('sorting.js', 'compareFiles trie correctement', (r) => {
+            const file1 = { name: 'a.txt', is_folder: false, size: 100, modified: 1000 };
+            const file2 = { name: 'b.txt', is_folder: false, size: 200, modified: 2000 };
+            
+            state.sortColumn = 'name';
+            state.sortDirection = 'asc';
+            
+            const result = sorting.compareFiles(file1, file2);
+            r.assert(result < 0, 'a doit être avant b en ordre croissant');
+        });
+
+        runner.test('sorting.js', 'Les dossiers sont toujours en premier', (r) => {
+            const folder = { name: 'z-folder', is_folder: true, size: 0, modified: 1000 };
+            const file = { name: 'a-file.txt', is_folder: false, size: 100, modified: 1000 };
+            
+            const result = sorting.compareFiles(folder, file);
+            r.assert(result < 0, 'Les dossiers doivent être avant les fichiers');
+        });
+
+        // ===== TESTS MODAL =====
+        runner.test('modal.js', 'Module modal existe', (r) => {
+            r.assertExists(modal, 'modal doit exister');
+            r.assertExists(modal.open, 'open doit exister');
+            r.assertExists(modal.close, 'close doit exister');
+        });
+
+        runner.test('modal.js', 'open modifie l\'état', (r) => {
+            dom.modalTitle = document.getElementById('modal-title');
+            dom.modalContent = document.getElementById('modal-content');
+            dom.modalOverlay = document.getElementById('modal-overlay');
+            
+            modal.open('Test Title', 'Test Content');
+            r.assertEquals(state.isModalOpen, true, 'isModalOpen doit être true');
+            r.assertEquals(dom.modalTitle.textContent, 'Test Title', 'Titre doit être défini');
+        });
+
+        // ===== TESTS CONTEXT MENU =====
+        runner.test('contextMenu.js', 'Module contextMenu existe', (r) => {
+            r.assertExists(contextMenu, 'contextMenu doit exister');
+            r.assertExists(contextMenu.show, 'show doit exister');
+            r.assertExists(contextMenu.hide, 'hide doit exister');
+            r.assertExists(contextMenu.generateHtml, 'generateHtml doit exister');
+        });
+
+        runner.test('contextMenu.js', 'generateHtml génère du HTML', (r) => {
+            const file = { name: 'test.txt', path: '/test.txt', isFolder: false };
+            const html = contextMenu.generateHtml(file);
+            r.assert(html.includes('test.txt'), 'HTML doit contenir le nom du fichier');
+            r.assert(html.includes('button'), 'HTML doit contenir des boutons');
+        });
+
+        // ===== TESTS FILE ACTIONS =====
+        runner.test('fileActions.js', 'Module fileActions existe', (r) => {
+            r.assertExists(fileActions, 'fileActions doit exister');
+            r.assertExists(fileActions.canViewFile, 'canViewFile doit exister');
+            r.assertExists(fileActions.handleFileClick, 'handleFileClick doit exister');
+            r.assertExists(fileActions.downloadFile, 'downloadFile doit exister');
+        });
+
+        runner.test('fileActions.js', 'canViewFile détecte les images', (r) => {
+            r.assertEquals(fileActions.canViewFile('image/png', 'test.png'), true, 'PNG doit être visualisable');
+            r.assertEquals(fileActions.canViewFile('image/jpeg', 'test.jpg'), true, 'JPEG doit être visualisable');
+        });
+
+        runner.test('fileActions.js', 'canViewFile détecte les fichiers texte', (r) => {
+            r.assertEquals(fileActions.canViewFile('text/plain', 'test.txt'), true, 'TXT doit être visualisable');
+            r.assertEquals(fileActions.canViewFile('application/json', 'test.json'), true, 'JSON doit être visualisable');
+        });
+
+        // ===== TESTS FOLDER ACTIONS =====
+        runner.test('folderActions.js', 'Module folderActions existe', (r) => {
+            r.assertExists(folderActions, 'folderActions doit exister');
+            r.assertExists(folderActions.openCreateModal, 'openCreateModal doit exister');
+            r.assertExists(folderActions.openRenameModal, 'openRenameModal doit exister');
+        });
+
+        // ===== TESTS UPLOAD =====
+        runner.test('upload.js', 'Module upload existe', (r) => {
+            r.assertExists(upload, 'upload doit exister');
+            r.assertExists(upload.openModal, 'openModal doit exister');
+            r.assertExists(upload.handleSubmit, 'handleSubmit doit exister');
+        });
+
+        // ===== TESTS SEARCH =====
+        runner.test('search.js', 'Module search existe', (r) => {
+            r.assertExists(search, 'search doit exister');
+            r.assertExists(search.perform, 'perform doit exister');
+            r.assertExists(search.handleSubmit, 'handleSubmit doit exister');
+            r.assertExists(search.exitSearchMode, 'exitSearchMode doit exister');
+        });
+
+        runner.test('search.js', 'exitSearchMode réinitialise l\'état', (r) => {
+            state.isSearchMode = true;
+            state.lastSearchQuery = 'test';
+            search.exitSearchMode();
+            r.assertEquals(state.isSearchMode, false, 'isSearchMode doit être false');
+            r.assertEquals(state.lastSearchQuery, '', 'lastSearchQuery doit être vide');
+        });
+
+        // ===== TESTS NOTIFICATIONS =====
+        runner.test('notifications.js', 'Module notifications existe', (r) => {
+            r.assertExists(notifications, 'notifications doit exister');
+            r.assertExists(notifications.show, 'show doit exister');
+            r.assertType(notifications.show, 'function', 'show doit être une fonction');
+        });
+
+        // ===== TESTS MOBILE =====
+        runner.test('mobile.js', 'Module mobile existe', (r) => {
+            r.assertExists(mobile, 'mobile doit exister');
+            r.assertExists(mobile.openSearchModal, 'openSearchModal doit exister');
+            r.assertExists(mobile.closeSearchModal, 'closeSearchModal doit exister');
+        });
+
+        // ===== TESTS APP =====
+        runner.test('app.js', 'Module app existe', (r) => {
+            r.assertExists(app, 'app doit exister');
+            r.assertExists(app.init, 'init doit exister');
+            r.assertType(app.init, 'function', 'init doit être une fonction');
+        });
+
+        // Fonction pour lancer les tests
+        async function runTests() {
+            clearLogs();
+            addLog('=== RELANCEMENT DES TESTS ===', 'info');
+            await runner.run();
+        }
+
+        // Lancer automatiquement au chargement
+        window.addEventListener('DOMContentLoaded', () => {
+            setTimeout(runTests, 1000);
+        });
+    </script>
+</body>
+</html>

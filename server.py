@@ -38,7 +38,10 @@ def secure_path_join(*paths):
         return None
     
     return full_path
-
+@app.route('/test')
+def test():
+    """Page de test des modules JavaScript"""
+    return render_template('test.html')
 # --- ROUTES PRINCIPALES ---
 
 @app.route('/')

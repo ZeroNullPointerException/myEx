@@ -5,10 +5,8 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>Gestionnaire de Fichiers (Bonnes Pratiques)</title>
     
-    <!-- Favicon pour éviter l'erreur 404 -->
     <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>📁</text></svg>">
     
-    <!-- Meta tags pour Android/PWA -->
     <meta name="mobile-web-app-capable" content="yes">
     <meta name="theme-color" content="#3b82f6">
     
@@ -58,7 +56,7 @@
     <main class="max-w-7xl mx-auto p-4 sm:p-6">
         
         <div id="path-display" class="glass-card p-3 rounded-xl mb-4 text-sm text-slate-600 overflow-x-auto whitespace-nowrap shadow-sm">
-            </div>
+        </div>
 
         <div class="glass-card overflow-hidden shadow-xl rounded-xl">
             <table class="min-w-full divide-y divide-slate-200">
@@ -77,30 +75,30 @@
                     </tr>
                 </thead>
                 <tbody id="file-list-body" class="bg-white divide-y divide-slate-100">
-                    </tbody>
+                </tbody>
             </table>
         </div>
 
     </main>
 
     <div id="context-menu" class="context-menu-container hidden absolute w-56 bg-white rounded-lg shadow-2xl py-1 border border-slate-100" style="min-width: 150px;">
-        </div>
+    </div>
 
-    <div id="modal-overlay" class="modal-overlay fixed inset-0 bg-slate-900 bg-opacity-75 hidden opacity-0 transition-opacity duration-300 flex items-center justify-center p-4">
+    <div id="modal-overlay" class="modal-overlay fixed inset-0 bg-slate-900 bg-opacity-75 hidden opacity-0 transition-opacity duration-300 flex items-center justify-center p-4" onclick="if(event.target.id === 'modal-overlay') modal.close()">
         <div class="glass-card w-full max-w-lg rounded-xl shadow-2xl transform scale-100 transition-all duration-300" onclick="event.stopPropagation()">
             <div class="p-4 border-b border-slate-100 flex justify-between items-center">
                 <h2 id="modal-title" class="text-xl font-bold text-slate-800">Titre de la Modale</h2>
-                <button onclick="closeModal()" class="text-slate-400 hover:text-slate-600 p-2 rounded-full hover:bg-slate-100 transition">
+                <button onclick="modal.close()" class="text-slate-400 hover:text-slate-600 p-2 rounded-full hover:bg-slate-100 transition">
                     <i class="fas fa-times"></i>
                 </button>
             </div>
             <div id="modal-content" class="p-4">
-                </div>
+            </div>
         </div>
     </div>
     
     <div id="notification-container" class="notification-container flex flex-col items-end">
-        </div>
+    </div>
 
     <div class="mobile-actions glass-card flex justify-around sm:hidden">
         <button id="mobile-create-folder-btn" class="flex flex-col items-center text-yellow-600 hover:text-yellow-700 p-2 transition">
@@ -111,7 +109,7 @@
             <i class="fas fa-cloud-upload-alt text-xl"></i>
             <span class="text-xs mt-1 font-medium">Téléverser</span>
         </button>
-        <button onclick="navigateToFolder('/')" class="flex flex-col items-center text-slate-600 hover:text-slate-700 p-2 transition">
+        <button onclick="navigation.navigateToFolder('/')" class="flex flex-col items-center text-slate-600 hover:text-slate-700 p-2 transition">
             <i class="fas fa-home text-xl"></i>
             <span class="text-xs mt-1 font-medium">Accueil</span>
         </button>
@@ -132,19 +130,48 @@
             </button>
         </form>
     </div>
-    <div id="modal-overlay" class="fixed inset-0 bg-black bg-opacity-50 z-40 hidden opacity-0 transition-opacity duration-300 flex items-center justify-center p-4" onclick="if(event.target.id === 'modal-overlay') closeModal()">
-        <div class="bg-white rounded-xl shadow-2xl max-w-lg w-full p-6 transform transition-all duration-300 scale-100" onclick="event.stopPropagation()">
-            <div class="flex justify-between items-center pb-3 border-b border-slate-200">
-                <h3 id="modal-title" class="text-xl font-bold text-slate-800"></h3>
-                <button onclick="closeModal()" class="text-slate-400 hover:text-slate-600 p-1 rounded-full">
-                    <i class="fas fa-times text-lg"></i>
-                </button>
-            </div>
-            
-            <div id="modal-content" class="py-4">
-                </div>
-        </div>
-    </div>
+
+    <!-- ORDRE DE CHARGEMENT CRITIQUE DES MODULES JS -->
+    <!-- 1. Configuration et constantes (pas de dépendances) -->
+    <script src="{{ url_for('static', filename='js/config.js') }}"></script>
+    
+    <!-- 2. Utilitaires (pas de dépendances sur d'autres modules) -->
+    <script src="{{ url_for('static', filename='js/utils.js') }}"></script>
+    
+    <!-- 3. Notifications (pas de dépendances) -->
+    <script src="{{ url_for('static', filename='js/notifications.js') }}"></script>
+    
+    <!-- 4. Modal (dépend de config/dom) -->
+    <script src="{{ url_for('static', filename='js/modal.js') }}"></script>
+    
+    <!-- 5. Mobile (dépend de config/dom) -->
+    <script src="{{ url_for('static', filename='js/mobile.js') }}"></script>
+    
+    <!-- 6. Sorting (dépend de config) -->
+    <script src="{{ url_for('static', filename='js/sorting.js') }}"></script>
+    
+    <!-- 7. UI (dépend de utils, sorting) -->
+    <script src="{{ url_for('static', filename='js/ui.js') }}"></script>
+    
+    <!-- 8. Navigation (dépend de ui, utils, notifications) -->
+    <script src="{{ url_for('static', filename='js/navigation.js') }}"></script>
+    
+    <!-- 9. Search (dépend de ui, navigation, mobile, notifications) -->
+    <script src="{{ url_for('static', filename='js/search.js') }}"></script>
+    
+    <!-- 10. File Actions (dépend de modal, utils, notifications, navigation) -->
+    <script src="{{ url_for('static', filename='js/fileActions.js') }}"></script>
+    
+    <!-- 11. Folder Actions (dépend de modal, notifications, navigation) -->
+    <script src="{{ url_for('static', filename='js/folderActions.js') }}"></script>
+    
+    <!-- 12. Upload (dépend de modal, notifications, navigation, utils) -->
+    <script src="{{ url_for('static', filename='js/upload.js') }}"></script>
+    
+    <!-- 13. Context Menu (dépend de TOUS les modules précédents) -->
+    <script src="{{ url_for('static', filename='js/contextMenu.js') }}"></script>
+    
+    <!-- 14. App - Initialisation finale (dépend de TOUT) -->
     <script src="{{ url_for('static', filename='js/app.js') }}"></script>
 </body>
 </html>
