@@ -384,7 +384,62 @@ def api_view():
     except Exception as e:
         print(f"Erreur lors de la visualisation: {e}")
         return jsonify({"error": str(e)}), 500
+        
+@app.route('/api/move', methods=['POST'])
+def api_move():
+    """Déplace un fichier ou un dossier vers un nouveau dossier."""
+    data = request.json
+    source_path = data.get('source_path')
+    destination_folder = data.get('destination_folder')
 
+    if not source_path or destination_folder is None:
+        return jsonify({"error": "Chemin source ou dossier de destination manquant."}), 400
+
+    # Vérification des chemins
+    full_source_path = secure_path_join(BASE_DIR, source_path)
+    full_destination_folder = secure_path_join(BASE_DIR, destination_folder.strip('/'))
+    
+    if full_source_path is None or full_destination_folder is None:
+        return jsonify({"error": "Chemin source ou destination en dehors du répertoire géré."}), 400
+
+    # Vérifier que la source existe
+    if not os.path.exists(full_source_path):
+        return jsonify({"error": "Fichier ou dossier source non trouvé."}), 404
+
+    # Vérifier que la destination est un dossier
+    if not os.path.isdir(full_destination_folder):
+        return jsonify({"error": "La destination doit être un dossier existant."}), 400
+
+    # Construire le chemin de destination complet
+    item_name = os.path.basename(full_source_path)
+    full_destination_path = os.path.join(full_destination_folder, item_name)
+
+    # Vérifier qu'on ne déplace pas dans le même dossier
+    if os.path.dirname(full_source_path) == full_destination_folder:
+        return jsonify({"error": "Le fichier est déjà dans ce dossier."}), 400
+
+    # Vérifier qu'on ne déplace pas un dossier dans lui-même
+    if os.path.isdir(full_source_path) and full_destination_folder.startswith(full_source_path):
+        return jsonify({"error": "Impossible de déplacer un dossier dans lui-même."}), 400
+
+    # Vérifier si un élément avec le même nom existe déjà
+    if os.path.exists(full_destination_path):
+        return jsonify({"error": f"Un élément nommé '{item_name}' existe déjà dans le dossier de destination."}), 409
+
+    try:
+        shutil.move(full_source_path, full_destination_path)
+        
+        item_type = "Dossier" if os.path.isdir(full_destination_path) else "Fichier"
+        return jsonify({"message": f"{item_type} déplacé avec succès."}), 200
+        
+    except OSError as e:
+        print(f"Erreur d'OS lors du déplacement: {e}")
+        return jsonify({"error": f"Erreur de permission ou de système: {e}"}), 500
+    except Exception as e:
+        print(f"Erreur lors du déplacement: {e}")
+        return jsonify({"error": str(e)}), 500
+        
+        
 @app.route('/api/player', methods=['GET'])
 def media_player():
     """Affiche un lecteur pour les fichiers vidéo/audio."""

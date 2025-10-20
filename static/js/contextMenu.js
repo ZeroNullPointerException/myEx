@@ -70,8 +70,13 @@ const contextMenu = {
                 <button onclick="folderActions.openRenameModal('${file.name}', '${file.path}', true)" class="flex items-center w-full px-3 py-2 text-sm text-slate-700 hover:bg-blue-50 transition duration-150">
                     <i class="fas fa-edit mr-2 w-4"></i> Renommer
                 </button>
+                <button onclick="moveActions.openMoveModal('${file.name}', '${file.path}', true)" class="flex items-center w-full px-3 py-2 text-sm text-slate-700 hover:bg-blue-50 transition duration-150">
+                    <i class="fas fa-arrows-alt mr-2 w-4"></i> Déplacer
+                </button>
                 
-                ${parentButtonHtml} <div class="border-t border-slate-100 my-1"></div>
+                ${parentButtonHtml}
+                
+                <div class="border-t border-slate-100 my-1"></div>
                 <button onclick="fileActions.confirmDelete('${file.name}', '${file.path}')" class="flex items-center w-full px-3 py-2 text-sm text-red-600 hover:bg-red-50 transition duration-150">
                     <i class="fas fa-trash-alt mr-2 w-4"></i> Supprimer le dossier
                 </button>
@@ -94,8 +99,13 @@ const contextMenu = {
                 <button onclick="folderActions.openRenameModal('${file.name}', '${file.path}', false)" class="flex items-center w-full px-3 py-2 text-sm text-slate-700 hover:bg-blue-50 transition duration-150">
                     <i class="fas fa-edit mr-2 w-4"></i> Renommer
                 </button>
+                <button onclick="moveActions.openMoveModal('${file.name}', '${file.path}', false)" class="flex items-center w-full px-3 py-2 text-sm text-slate-700 hover:bg-blue-50 transition duration-150">
+                    <i class="fas fa-arrows-alt mr-2 w-4"></i> Déplacer
+                </button>
                 
-                ${parentButtonHtml} <div class="border-t border-slate-100 my-1"></div>
+                ${parentButtonHtml}
+                
+                <div class="border-t border-slate-100 my-1"></div>
                 <button onclick="fileActions.confirmDelete('${file.name}', '${file.path}')" class="flex items-center w-full px-3 py-2 text-sm text-red-600 hover:bg-red-50 transition duration-150">
                     <i class="fas fa-trash-alt mr-2 w-4"></i> Supprimer le fichier
                 </button>
