@@ -1,12 +1,14 @@
-
 // ============================================
 // modal.js - Gestion des modales
 // ============================================
 
 const modal = {
     open(title, content) {
-        dom.modalTitle.textContent = title;
-        dom.modalContent.innerHTML = content;
+        dom.modalTitle.innerHTML = title; 
+        
+        // Le contenu était déjà correct (innerHTML)
+        dom.modalContent.innerHTML = content; 
+        
         dom.modalOverlay.classList.remove('hidden');
         setTimeout(() => dom.modalOverlay.classList.add('opacity-100'), 10);
         state.isModalOpen = true;

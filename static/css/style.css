@@ -1,6 +1,6 @@
 /* 
  * Fichier CSS externe pour le Gestionnaire de Fichiers.
- * Version améliorée avec ergonomie optimisée
+ * Version améliorée avec transitions style Apple
  */
 
 /* Utilisation de la police Inter */
@@ -29,11 +29,10 @@ body {
     right: 20px;
     z-index: 50;
     max-width: 90vw;
-    /* --- CORRECTION POUR L'EMPILAGE --- */
-    display: flex; /* Active le mode Flexbox */
-    flex-direction: column-reverse; /* Empilement vertical (le nouveau va en bas) */
-    gap: 10px; /* Espace de 10px entre les notifications */
-    align-items: flex-end; /* Aligne les notifications à droite */
+    display: flex;
+    flex-direction: column-reverse;
+    gap: 10px;
+    align-items: flex-end;
 }
 
 /* Fixe le z-index pour les modales */
@@ -69,9 +68,19 @@ body {
     background-color: rgba(59, 130, 246, 0.1);
 }
 
-/* Amélioration des transitions sur les lignes du tableau */
+/* ============================================
+   TRANSITIONS STYLE APPLE - NAVIGATION
+   ============================================ */
+
+/* Container pour les transitions - Simple et fluide */
+#file-list-body {
+    position: relative;
+}
+
+/* Transition douce et naturelle */
 tbody tr {
-    transition: all 0.2s ease;
+    transition: background-color 0.2s ease,
+                transform 0.15s ease;
 }
 
 tbody tr:hover {
@@ -80,12 +89,17 @@ tbody tr:hover {
 
 /* Animation pour le bouton de menu contextuel */
 tbody tr .group-hover\:opacity-100 {
-    transition: opacity 0.2s ease, transform 0.2s ease;
+    transition: opacity 0.2s cubic-bezier(0.4, 0.0, 0.2, 1),
+                transform 0.2s cubic-bezier(0.4, 0.0, 0.2, 1);
 }
 
 tbody tr:hover .group-hover\:opacity-100 {
     transform: scale(1.1);
 }
+
+/* ============================================
+   FIN TRANSITIONS APPLE
+   ============================================ */
 
 /* Style pour le bouton de sortie de recherche */
 button[onclick*="exitSearchMode"] {
@@ -121,35 +135,29 @@ tbody tr[onclick*="handleFileClick"]:active {
 }
 
 /* Styles pour les en-têtes de tableau (tri) */
-
-/* Masquer l'icône de tri par défaut */
 .sortable-header .sort-icon {
     visibility: hidden;
     opacity: 0.5;
     transition: opacity 0.2s;
 }
 
-/* Afficher l'icône de tri au survol */
 .sortable-header:hover .sort-icon {
     visibility: visible;
     opacity: 1;
 }
 
-/* Rendre l'icône visible pour la colonne triée */
 .sortable-header.sort-asc .sort-icon,
 .sortable-header.sort-desc .sort-icon {
     visibility: visible;
     opacity: 1;
 }
 
-/* Colorer la colonne triée */
 .sortable-header.sort-asc,
 .sortable-header.sort-desc {
     background-color: #f0f4f8;
 }
 
 /* Styles pour l'affichage de code */
-
 .code-viewer-container {
     padding: 0;
     margin: -1.5rem;
@@ -185,7 +193,6 @@ tbody tr[onclick*="handleFileClick"]:active {
     overflow-x: auto;
 }
 
-/* Alternance de couleur pour la lecture */
 .code-line:nth-child(even) { 
     background-color: #f8fafc;
 }
@@ -204,7 +211,7 @@ tbody tr[onclick*="handleFileClick"]:active {
 
 /* Amélioration des boutons */
 button {
-    transition: all 0.15s ease;
+    transition: all 0.15s cubic-bezier(0.4, 0.0, 0.2, 1);
 }
 
 button:active {
@@ -213,7 +220,7 @@ button:active {
 
 /* Amélioration du menu contextuel */
 .context-menu-container {
-    animation: contextMenuFadeIn 0.15s ease;
+    animation: contextMenuFadeIn 0.15s cubic-bezier(0.4, 0.0, 0.2, 1);
 }
 
 @keyframes contextMenuFadeIn {
@@ -267,7 +274,7 @@ tbody tr[onclick*="navigateToFolder"] {
 
 /* Style pour les icônes de fichiers */
 tbody td i {
-    transition: transform 0.15s ease;
+    transition: transform 0.15s cubic-bezier(0.4, 0.0, 0.2, 1);
 }
 
 tbody tr:hover td i {
@@ -305,22 +312,6 @@ button:focus {
 
 ::-webkit-scrollbar-thumb:hover {
     background: #94a3b8;
-}
-
-/* Animation d'entrée pour les lignes du tableau */
-@keyframes slideIn {
-    from {
-        opacity: 0;
-        transform: translateY(-10px);
-    }
-    to {
-        opacity: 1;
-        transform: translateY(0);
-    }
-}
-
-tbody tr {
-    animation: slideIn 0.2s ease;
 }
 
 /* Style pour les états hover des boutons d'action */

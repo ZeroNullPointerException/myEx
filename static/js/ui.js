@@ -33,6 +33,33 @@ const ui = {
     },
 
     renderFileList(files, path, isSearchResult) {
+        // Pas d'animation pour la recherche ou première charge
+        if (isSearchResult || dom.fileListBody.children.length === 0) {
+            ui.renderFileListContent(files, path, isSearchResult);
+            return;
+        }
+        
+        // Animation simple et fluide
+        dom.fileListBody.style.opacity = '0';
+        dom.fileListBody.style.transform = 'translateY(-10px)';
+        
+        setTimeout(() => {
+            ui.renderFileListContent(files, path, isSearchResult);
+            
+            // Force reflow
+            dom.fileListBody.offsetHeight;
+            
+            dom.fileListBody.style.transition = 'opacity 0.3s ease, transform 0.3s ease';
+            dom.fileListBody.style.opacity = '1';
+            dom.fileListBody.style.transform = 'translateY(0)';
+            
+            setTimeout(() => {
+                dom.fileListBody.style.transition = '';
+            }, 300);
+        }, 150);
+    },
+
+    renderFileListContent(files, path, isSearchResult) {
         dom.pathDisplay.innerHTML = '';
         dom.fileListBody.innerHTML = '';
 
@@ -93,31 +120,31 @@ const ui = {
             files.sort(sorting.compareFiles);
         }
         
-        // Bouton "Retour"
-        if (!isSearchResult && state.currentPath !== ROOT_PATH) {
-            const backRow = document.createElement('tr');
-            backRow.className = 'hover:bg-slate-100 transition duration-150 cursor-pointer group';
-            backRow.onclick = () => navigation.navigateUp();
-            backRow.innerHTML = `
-                <td class="flex items-center px-4 py-3 whitespace-nowrap text-slate-600 font-medium">
-                    <i class="fas fa-level-up-alt w-5 text-center mr-3 text-slate-400 group-hover:text-blue-600 transition duration-150"></i>
-                    <span class="group-hover:text-blue-700 transition duration-150">... (Remonter)</span>
-                </td>
-                <td colspan="3" class="px-4 py-3 text-sm text-slate-500"></td>
-            `;
-            dom.fileListBody.appendChild(backRow);
-        }
-
         // Liste des fichiers
         if (files.length === 0) {
-            dom.fileListBody.innerHTML += `
-                <tr>
-                    <td colspan="4" class="py-10 text-center text-slate-500 text-lg">
-                        <i class="fas fa-folder-open text-4xl mb-3 text-slate-300"></i>
-                        <p>${isSearchResult ? 'Aucun résultat trouvé.' : 'Ce dossier est vide.'}</p>
-                    </td>
-                </tr>
+            const emptyRow = document.createElement('tr');
+            emptyRow.innerHTML = `
+                <td colspan="4" class="py-10 text-center text-slate-500 text-lg">
+                    <i class="fas fa-folder-open text-4xl mb-3 text-slate-300"></i>
+                    <p>${isSearchResult ? 'Aucun résultat trouvé.' : 'Ce dossier est vide.'}</p>
+                </td>
             `;
+            dom.fileListBody.appendChild(emptyRow);
+            
+            // Ajouter le bouton Remonter même si vide
+            if (!isSearchResult && state.currentPath !== ROOT_PATH) {
+                const backRow = document.createElement('tr');
+                backRow.className = 'hover:bg-slate-100 transition duration-150 cursor-pointer group';
+                backRow.onclick = () => navigation.navigateUp();
+                backRow.innerHTML = `
+                    <td class="flex items-center px-4 py-3 whitespace-nowrap text-slate-600 font-medium">
+                        <i class="fas fa-level-up-alt w-5 text-center mr-3 text-slate-400 group-hover:text-blue-600 transition duration-150"></i>
+                        <span class="group-hover:text-blue-700 transition duration-150">... (Remonter)</span>
+                    </td>
+                    <td colspan="3" class="px-4 py-3 text-sm text-slate-500"></td>
+                `;
+                dom.fileListBody.insertBefore(backRow, dom.fileListBody.firstChild);
+            }
             return;
         }
 
@@ -133,6 +160,21 @@ const ui = {
                 </td>
             `;
             dom.fileListBody.appendChild(infoRow);
+        }
+        
+        // Ajouter le bouton Remonter en premier
+        if (!isSearchResult && state.currentPath !== ROOT_PATH) {
+            const backRow = document.createElement('tr');
+            backRow.className = 'hover:bg-slate-100 transition duration-150 cursor-pointer group';
+            backRow.onclick = () => navigation.navigateUp();
+            backRow.innerHTML = `
+                <td class="flex items-center px-4 py-3 whitespace-nowrap text-slate-600 font-medium">
+                    <i class="fas fa-level-up-alt w-5 text-center mr-3 text-slate-400 group-hover:text-blue-600 transition duration-150"></i>
+                    <span class="group-hover:text-blue-700 transition duration-150">... (Remonter)</span>
+                </td>
+                <td colspan="3" class="px-4 py-3 text-sm text-slate-500"></td>
+            `;
+            dom.fileListBody.appendChild(backRow);
         }
 
         // Rendu optimisé par morceaux avec vrai délai asynchrone
@@ -209,7 +251,6 @@ const ui = {
             
             // Continuer si nécessaire
             if (currentIndex < files.length) {
-                // Utiliser setTimeout avec délai 0 pour libérer le thread
                 setTimeout(renderChunk, 0);
             } else {
                 // Terminé - supprimer l'indicateur
