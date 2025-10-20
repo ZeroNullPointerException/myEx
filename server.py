@@ -385,6 +385,7 @@ def api_view():
         print(f"Erreur lors de la visualisation: {e}")
         return jsonify({"error": str(e)}), 500
         
+
 @app.route('/api/move', methods=['POST'])
 def api_move():
     """Déplace un fichier ou un dossier vers un nouveau dossier."""
@@ -438,6 +439,65 @@ def api_move():
     except Exception as e:
         print(f"Erreur lors du déplacement: {e}")
         return jsonify({"error": str(e)}), 500
+        
+@app.route('/api/download_folder', methods=['GET'])
+def api_download_folder():
+    """Crée une archive ZIP d'un dossier et l'envoie en téléchargement."""
+    relative_path = request.args.get('path')
+
+    if not relative_path:
+        return jsonify({"error": "Chemin de dossier manquant."}), 400
+
+    full_path = secure_path_join(BASE_DIR, relative_path.strip('/'))
+
+    if full_path is None:
+        return jsonify({"error": "Chemin en dehors du répertoire géré."}), 400
+
+    if not os.path.exists(full_path):
+        return jsonify({"error": "Dossier non trouvé."}), 404
+
+    if not os.path.isdir(full_path):
+        return jsonify({"error": "Le chemin spécifié n'est pas un dossier."}), 400
+
+    try:
+        import tempfile
+        import zipfile
+        
+        # Créer un fichier temporaire pour l'archive
+        temp_zip = tempfile.NamedTemporaryFile(delete=False, suffix='.zip')
+        temp_zip.close()
+        
+        folder_name = os.path.basename(full_path) or 'root'
+        
+        # Créer l'archive ZIP
+        with zipfile.ZipFile(temp_zip.name, 'w', zipfile.ZIP_DEFLATED) as zipf:
+            for root, dirs, files in os.walk(full_path):
+                for file in files:
+                    file_path = os.path.join(root, file)
+                    arcname = os.path.relpath(file_path, os.path.dirname(full_path))
+                    zipf.write(file_path, arcname)
+        
+        # Envoyer le fichier et le supprimer après
+        response = send_file(
+            temp_zip.name,
+            mimetype='application/zip',
+            as_attachment=True,
+            download_name=f'{folder_name}.zip'
+        )
+        
+        # Supprimer le fichier temporaire après l'envoi
+        @response.call_on_close
+        def cleanup():
+            try:
+                os.unlink(temp_zip.name)
+            except Exception as e:
+                print(f"Erreur lors de la suppression du fichier temporaire: {e}")
+        
+        return response
+        
+    except Exception as e:
+        print(f"Erreur lors de la création de l'archive: {e}")
+        return jsonify({"error": f"Erreur lors de la création de l'archive: {str(e)}"}), 500
         
         
 @app.route('/api/player', methods=['GET'])

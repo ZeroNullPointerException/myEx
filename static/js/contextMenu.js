@@ -67,6 +67,9 @@ const contextMenu = {
                 <button onclick="navigation.navigateToFolder('/${file.path}')" class="flex items-center w-full px-3 py-2 text-sm text-slate-700 hover:bg-blue-50 transition duration-150">
                     <i class="fas fa-folder-open mr-2 w-4"></i> Ouvrir
                 </button>
+                <button onclick="fileActions.downloadFolder('${file.path}')" class="flex items-center w-full px-3 py-2 text-sm text-slate-700 hover:bg-blue-50 transition duration-150">
+                    <i class="fas fa-file-archive mr-2 w-4"></i> Télécharger (ZIP)
+                </button>
                 <button onclick="folderActions.openRenameModal('${file.name}', '${file.path}', true)" class="flex items-center w-full px-3 py-2 text-sm text-slate-700 hover:bg-blue-50 transition duration-150">
                     <i class="fas fa-edit mr-2 w-4"></i> Renommer
                 </button>

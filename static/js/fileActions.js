@@ -1,4 +1,3 @@
-
 // ============================================
 // fileActions.js - Actions sur les fichiers
 // ============================================
@@ -31,6 +30,13 @@ const fileActions = {
         contextMenu.hide();
         window.open(utils.buildApiUrl('download', path), '_blank');
         notifications.show(`Téléchargement de ${path.split('/').pop()} initié.`, 'info');
+    },
+
+    downloadFolder(path) {
+        contextMenu.hide();
+        const folderName = path.split('/').filter(s => s).pop() || 'root';
+        window.open(API_BASE + `/download_folder?path=${encodeURIComponent(path)}`, '_blank');
+        notifications.show(`Création de l'archive ${folderName}.zip en cours...`, 'info');
     },
 
     viewFile(path, mimeType, size) {
