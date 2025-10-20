@@ -5,7 +5,8 @@
 // ============================================
 
 const navigation = {
-    async navigateToFolder(newPath, isSearchResult = false, addToHistory = true) {
+  
+  async navigateToFolder(newPath, isSearchResult = false, addToHistory = true) {
         if (!isSearchResult) {
             state.currentPath = newPath;
             state.isSearchMode = false;
@@ -23,6 +24,11 @@ const navigation = {
 
         ui.showLoading();
         
+        // Ajouter un timeout pour afficher un message si ça prend trop de temps
+        const slowLoadTimeout = setTimeout(() => {
+            ui.showSlowLoadingWarning();
+        }, 2000); // Après 2 secondes
+        
         try {
             const url = utils.buildApiUrl('list', newPath);
             const response = await fetch(url);
@@ -32,9 +38,11 @@ const navigation = {
             }
             
             const data = await response.json();
+            clearTimeout(slowLoadTimeout);
             ui.renderFileList(data.files, data.current_path, data.is_search_result);
             
         } catch (error) {
+            clearTimeout(slowLoadTimeout);
             console.error("Erreur lors de la récupération de la liste des fichiers:", error);
             notifications.show(`Erreur lors de la navigation: ${error.message}`, 'error');
             if (newPath !== ROOT_PATH && !isSearchResult) {
@@ -44,7 +52,7 @@ const navigation = {
             ui.hideLoading();
         }
     },
-
+	
 	navigateUp() {
         if (state.currentPath === ROOT_PATH) {
             notifications.show("Vous êtes déjà à la racine", 'info');
