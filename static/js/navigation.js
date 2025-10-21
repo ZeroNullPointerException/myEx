@@ -22,7 +22,7 @@ const navigation = {
             history.pushState({ path: state.currentPath }, '', `?path=${encodeURIComponent(state.currentPath)}`);
         }
 
-        ui.showLoading();
+       // ui.showLoading();
         
         // Ajouter un timeout pour afficher un message si ça prend trop de temps
         const slowLoadTimeout = setTimeout(() => {

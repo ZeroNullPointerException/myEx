@@ -4,13 +4,8 @@
 
 const ui = {
     showLoading() {
-        dom.fileListBody.innerHTML = `
-            <tr class="bg-blue-50">
-                <td colspan="4" class="py-4 text-center text-blue-600 font-semibold">
-                    <i class="fas fa-spinner fa-spin mr-2"></i> Chargement des fichiers...
-                </td>
-            </tr>
-        `;
+        // Désactivé : Retrait de l'affichage "Chargement des fichiers..." 
+        // pour maintenir la fluidité du design.
     },
 
     showSlowLoadingWarning() {
@@ -66,7 +61,9 @@ const ui = {
         // Affichage de la barre d'adresse
         if (isSearchResult) {
             state.isSearchMode = true;
-            const searchTerm = path.replace("Recherche: '", "").replace("'", "");
+            // CORRECTION: S'assurer que path est une chaîne pour éviter le TypeError
+            const pathString = String(path || ""); 
+            const searchTerm = pathString.replace("Recherche: '", "").replace("'", "");
             dom.pathDisplay.innerHTML = `
                 <div class="flex items-center justify-between flex-wrap gap-2">
                     <div class="flex items-center gap-2">
@@ -114,15 +111,12 @@ const ui = {
                 }
             });
             
-            // --- MODIFICATION CORRIGÉE ICI ---
-            // Force le défilement du chemin vers la droite (dossier actuel)
+            // Logique de défilement pour le chemin (breadcrumbs)
             setTimeout(() => {
                 if (dom.pathDisplay) {
-                    // On défile jusqu'à la largeur totale pour afficher le dernier segment (le plus à droite)
                     dom.pathDisplay.scrollLeft = dom.pathDisplay.scrollWidth; 
                 }
             }, 50); 
-            // --- FIN DES MODIFICATIONS CORRIGÉES ---
         }
 
         // Tri des fichiers
@@ -229,7 +223,7 @@ const ui = {
                     <td class="px-4 py-3 whitespace-nowrap text-sm">
                         <div class="flex items-center ${nameClass} text-sm">
                             ${icon}
-                            ${displayName} 
+                            <div>${displayName}</div>
                         </div>
                     </td>
                     <td class="px-4 py-3 whitespace-nowrap text-sm text-slate-500 hidden sm:table-cell">
@@ -275,3 +269,62 @@ const ui = {
         setTimeout(renderChunk, 0);
     }
 };
+
+/* ============================================
+   LOGIQUE DE DÉFILEMENT (scroll) POUR LA BARRE MOBILE & TITRE
+   ============================================ */
+
+(function() {
+    // 1. Définir les éléments à cibler
+    const mobileActionsBar = document.querySelector('.mobile-actions');
+    const titleContainer = document.querySelector('.glass-card'); // Conteneur principal/titre
+    
+    if (!mobileActionsBar && !titleContainer) return;
+
+    let lastScrollY = window.scrollY;
+    let isMobile = window.innerWidth <= 640; 
+
+    // 2. Fonction pour gérer la classe
+    const handleScroll = () => {
+        const currentScrollY = window.scrollY;
+
+        // LOGIQUE POUR LA CARTE/TITRE SUPERIEUR (S'applique sur tous les écrans)
+        if (titleContainer) {
+             // Cacher la carte (défilement vers le BAS)
+            if (currentScrollY > lastScrollY && currentScrollY > 100) { 
+                titleContainer.classList.add('hidden-up');
+            } 
+            // Afficher la carte (défilement vers le HAUT ou au sommet)
+            else if (currentScrollY < lastScrollY || currentScrollY < 100) {
+                titleContainer.classList.remove('hidden-up');
+            }
+        }
+
+        // LOGIQUE POUR LA BARRE MOBILE (Uniquement sur mobile)
+        isMobile = window.innerWidth <= 640; 
+        if (mobileActionsBar && isMobile) {
+            // Défilement vers le BAS (et pas juste au début de la page)
+            if (currentScrollY > lastScrollY && currentScrollY > 100) { 
+                mobileActionsBar.classList.add('hidden-down');
+            } 
+            // Défilement vers le HAUT ou au tout début de la page
+            else if (currentScrollY < lastScrollY || currentScrollY < 100) {
+                mobileActionsBar.classList.remove('hidden-down');
+            }
+        }
+
+        lastScrollY = currentScrollY;
+    };
+    
+    // 3. Détecter le changement de taille (pour la logique mobile)
+    window.addEventListener('resize', () => {
+        isMobile = window.innerWidth <= 640;
+        // S'assurer que la barre mobile est visible si l'on passe en mode desktop
+        if (mobileActionsBar && !isMobile) {
+            mobileActionsBar.classList.remove('hidden-down');
+        }
+    });
+
+    // 4. Attacher l'écouteur d'événement
+    window.addEventListener('scroll', handleScroll, { passive: true });
+})();

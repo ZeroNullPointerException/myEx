@@ -1,27 +1,37 @@
-/* * Fichier CSS externe pour le Gestionnaire de Fichiers.
- * Version améliorée avec transitions style Apple
- */
-
-/* Utilisation de la police Inter */
 * { 
     font-family: 'Inter', sans-serif; 
 }
 
 body {
-    background-color: #f8fafc;
+    background-color: #f9f9fb;
     min-height: 100vh;
     padding-bottom: 5rem;
+    padding-top: 0;
 }
 
-/* Classe de base pour l'effet verre */
+/* Glass Card - Masquage en haut */
 .glass-card {
-    background: rgba(255, 255, 255, 0.95);
-    backdrop-filter: blur(8px);
-    border: 1px solid rgba(226, 232, 240, 0.7);
-    box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -2px rgba(0, 0, 0, 0.1);
+    background: rgba(255, 255, 255, .98);
+    backdrop-filter: blur(15px);
+    border: 1px solid rgba(226, 232, 240, .4);
+    box-shadow: 0 5px 15px rgba(0, 0, 0, .08), 
+                0 0 0 1px rgba(255, 255, 255, .6) inset;
+    border-radius: 0;
+    overflow: hidden;
+    /* AJOUT : Transition pour la fluidité du masquage */
+    transition: transform 0.3s ease-in-out;
 }
 
-/* Animation de notification */
+/* NOUVEAU : Classe pour cacher le titre/conteneur vers le haut */
+.glass-card.hidden-up {
+    transform: translateY(-100%); 
+}
+
+.glass-card:hover {
+    box-shadow: 0 15px 30px -5px rgba(0, 0, 0, .18), 
+                0 0 0 1px rgba(255, 255, 255, .6) inset;
+}
+
 .notification-container {
     position: fixed;
     bottom: 20px;
@@ -34,79 +44,107 @@ body {
     align-items: flex-end;
 }
 
-/* Fixe le z-index pour les modales */
 .modal-overlay {
     z-index: 999;
+    backdrop-filter: blur(4px);
 }
 
-/* Fixe le z-index pour le menu contextuel */
 .context-menu-container {
     z-index: 1000;
+    animation: contextMenuFadeIn .15s cubic-bezier(.4, 0, .2, 1);
 }
 
-/* Styles pour le bouton d'action flottant sur mobile */
+/* Barre d'action mobile - Masquage en bas */
 .mobile-actions {
     position: fixed;
     bottom: 0;
     left: 0;
     right: 0;
     z-index: 40;
-    padding: 0.5rem 1rem;
-    box-shadow: 0 -4px 6px -1px rgba(0, 0, 0, 0.1), 0 -2px 4px -2px rgba(0, 0, 0, 0.06);
+    padding: .5rem 1rem;
+    box-shadow: 0 -4px 6px -1px rgba(0, 0, 0, .1), 0 -2px 4px -2px rgba(0, 0, 0, .06);
+    transition: transform 0.3s ease-in-out; 
 }
 
-/* Styles pour les breadcrumbs */
+.mobile-actions.hidden-down {
+    transform: translateY(100%); 
+}
+
+.mobile-actions button:active {
+    background-color: rgba(0, 0, 0, .1);
+    border-radius: .5rem;
+}
+
+/* Breadcrumbs (Chemin) - Espace et Lisibilité */
+#path-display {
+    position: relative;
+    overflow-x: auto; 
+    white-space: nowrap; 
+    padding-bottom: 5px; 
+    margin: 1.5rem 0;
+}
+
 .breadcrumb-segment {
     display: inline-block;
-    padding: 0.25rem 0.5rem;
-    border-radius: 0.375rem;
-    transition: all 0.15s ease;
+    padding: .25rem .5rem;
+    border-radius: .375rem;
+    transition: all .15s ease;
 }
 
 .breadcrumb-segment:hover {
-    background-color: rgba(59, 130, 246, 0.1);
+    background-color: rgba(29, 78, 216, .1);
 }
 
-/* ============================================
-   TRANSITIONS STYLE APPLE - NAVIGATION
-   ============================================ */
-
-/* Container pour les transitions - Simple et fluide */
+/* Transitions & Tableau */
 #file-list-body {
     position: relative;
 }
 
-/* Transition douce et naturelle */
+thead {
+    background-color: #f7f7f7;
+    border-bottom: 1px solid #e5e5e5;
+}
+
 tbody tr {
-    transition: background-color 0.2s ease,
-                transform 0.15s ease;
+    transition: background-color .2s ease, transform .15s ease;
+    cursor: pointer;
 }
 
 tbody tr:hover {
-    transform: translateX(2px);
+    background-color: #f7f9fc;
+    transform: translateY(-1px);
+    box-shadow: 0 2px 5px rgba(0, 0, 0, .05);
 }
 
-/* Animation pour le bouton de menu contextuel */
+tbody tr:active {
+    transform: scale(.995);
+    box-shadow: none;
+    background-color: #eff3f7;
+}
+
 tbody tr .group-hover\:opacity-100 {
-    transition: opacity 0.2s cubic-bezier(0.4, 0.0, 0.2, 1),
-                transform 0.2s cubic-bezier(0.4, 0.0, 0.2, 1);
+    transition: opacity .2s cubic-bezier(.4, 0, .2, 1), transform .2s cubic-bezier(.4, 0, .2, 1);
 }
 
 tbody tr:hover .group-hover\:opacity-100 {
     transform: scale(1.1);
 }
 
-/* ============================================
-   FIN TRANSITIONS APPLE
-   ============================================ */
+/* Boutons & Focus */
+button {
+    transition: all .15s cubic-bezier(.4, 0, .2, 1);
+}
 
-/* Style pour le bouton de sortie de recherche */
+button:active {
+    transform: scale(.97);
+}
+
 button[onclick*="exitSearchMode"] {
-    box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.1);
+    box-shadow: 0 1px 3px 0 rgba(0, 0, 0, .1);
 }
 
 button[onclick*="exitSearchMode"]:hover {
-    box-shadow: 0 2px 4px 0 rgba(0, 0, 0, 0.15);
+    box-shadow: 0 2px 4px 0 rgba(0, 0, 0, .15);
     transform: translateY(-1px);
 }
 
@@ -114,7 +152,13 @@ button[onclick*="exitSearchMode"]:active {
     transform: translateY(0);
 }
 
-/* Amélioration visuelle du chargement */
+input:focus,
+button:focus {
+    outline: 2px solid rgba(29, 78, 216, .5);
+    outline-offset: 2px;
+}
+
+/* Animations */
 .fa-spinner {
     animation: spin 1s linear infinite;
 }
@@ -124,27 +168,28 @@ button[onclick*="exitSearchMode"]:active {
     to { transform: rotate(360deg); }
 }
 
-/* Style pour les fichiers cliquables */
-tbody tr[onclick*="handleFileClick"] {
-    cursor: pointer;
+@keyframes contextMenuFadeIn {
+    from { opacity: 0; transform: scale(.95); }
+    to { opacity: 1; transform: scale(1); }
 }
 
-tbody tr[onclick*="handleFileClick"]:active {
-    transform: scale(0.98);
+@keyframes pulse {
+    0%, 100% { opacity: 1; }
+    50% { opacity: .5; }
 }
 
-/* Styles pour les en-têtes de tableau (tri) */
+.animate-pulse {
+    animation: pulse 2s cubic-bezier(.4, 0, .6, 1) infinite;
+}
+
+/* Tableau Headers & Icônes */
 .sortable-header .sort-icon {
     visibility: hidden;
-    opacity: 0.5;
-    transition: opacity 0.2s;
+    opacity: .5;
+    transition: opacity .2s;
 }
 
-.sortable-header:hover .sort-icon {
-    visibility: visible;
-    opacity: 1;
-}
-
+.sortable-header:hover .sort-icon,
 .sortable-header.sort-asc .sort-icon,
 .sortable-header.sort-desc .sort-icon {
     visibility: visible;
@@ -153,22 +198,34 @@ tbody tr[onclick*="handleFileClick"]:active {
 
 .sortable-header.sort-asc,
 .sortable-header.sort-desc {
-    background-color: #f0f4f8;
+    background-color: #eef1f5;
 }
 
-/* Styles pour l'affichage de code */
+tbody tr[onclick*="navigateToFolder"] {
+    font-weight: 500;
+}
+
+tbody td i {
+    transition: transform .15s cubic-bezier(.4, 0, .2, 1);
+}
+
+tbody tr:hover td i {
+    transform: scale(1.1);
+}
+
+/* Code Viewer */
 .code-viewer-container {
     padding: 0;
     margin: -1.5rem;
     max-height: 70vh;
     overflow-y: auto;
-    background-color: #ffffff;
-    border-radius: 0 0 0.75rem 0.75rem;
+    background-color: #fff;
+    border-radius: 0 0 .75rem .75rem;
 }
 
 .code-viewer-header {
-    background-color: #f1f5f9;
-    padding: 0.75rem 1.5rem;
+    background-color: #f4f5f7;
+    padding: .75rem 1.5rem;
     border-bottom: 1px solid #e2e8f0;
 }
 
@@ -199,106 +256,29 @@ tbody tr[onclick*="handleFileClick"]:active {
 .code-viewer-content {
     padding: 0;
     font-family: 'Consolas', 'Courier New', monospace;
-    font-size: 0.9rem;
+    font-size: .9rem;
     white-space: pre;
 }
 
-/* Amélioration de la modal */
-.modal-overlay {
-    backdrop-filter: blur(2px);
+/* Corrections: Noms de Fichiers */
+#file-list-body td:first-child {
+    max-width: 40vw; 
+    min-width: 200px; 
 }
 
-/* Amélioration des boutons */
-button {
-    transition: all 0.15s cubic-bezier(0.4, 0.0, 0.2, 1);
+#file-list-body td:first-child > div,
+#file-list-body td:first-child > div > div {
+    max-width: 100%; 
+    overflow: hidden;
+    white-space: nowrap;
+    text-overflow: ellipsis;
 }
 
-button:active {
-    transform: scale(0.97);
+#file-list-body td:first-child > div > div {
+    min-width: 0;
 }
 
-/* Amélioration du menu contextuel */
-.context-menu-container {
-    animation: contextMenuFadeIn 0.15s cubic-bezier(0.4, 0.0, 0.2, 1);
-}
-
-@keyframes contextMenuFadeIn {
-    from {
-        opacity: 0;
-        transform: scale(0.95);
-    }
-    to {
-        opacity: 1;
-        transform: scale(1);
-    }
-}
-
-/* Style pour le dossier "Remonter" */
-tbody tr[onclick*="navigateToFolder"] {
-    font-weight: 500;
-}
-
-/* Amélioration responsive */
-@media (max-width: 640px) {
-    .breadcrumb-segment {
-        font-size: 0.875rem;
-        padding: 0.125rem 0.375rem;
-    }
-    
-    tbody tr:hover {
-        transform: none;
-    }
-    
-    .notification-container {
-        bottom: 80px;
-        right: 10px;
-        left: 10px;
-        max-width: none;
-    }
-}
-
-/* Animation de pulsation pour les éléments de chargement */
-@keyframes pulse {
-    0%, 100% {
-        opacity: 1;
-    }
-    50% {
-        opacity: 0.5;
-    }
-}
-
-.animate-pulse {
-    animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
-}
-
-/* Style pour les icônes de fichiers */
-tbody td i {
-    transition: transform 0.15s cubic-bezier(0.4, 0.0, 0.2, 1);
-}
-
-tbody tr:hover td i {
-    transform: scale(1.1);
-}
-
-/* Amélioration du focus pour l'accessibilité */
-input:focus,
-button:focus {
-    outline: 2px solid rgba(59, 130, 246, 0.5);
-    outline-offset: 2px;
-}
-
-/* Style pour les chemins de recherche */
-#path-display {
-    position: relative;
-    /* --- MODIFICATIONS CORRIGÉES ICI --- */
-    overflow-x: auto; /* Permet le défilement horizontal */
-    white-space: nowrap; /* Empêche les sauts de ligne */
-    padding-bottom: 5px; /* Espace pour la barre de défilement si nécessaire */
-    /* Retire direction: rtl; pour que l'ordre soit correct */
-    /* --- FIN DES MODIFICATIONS CORRIGÉES --- */
-}
-
-/* Scrollbar personnalisée */
+/* Scrollbar */
 ::-webkit-scrollbar {
     width: 8px;
     height: 8px;
@@ -318,46 +298,26 @@ button:focus {
     background: #94a3b8;
 }
 
-/* Style pour les états hover des boutons d'action */
-.mobile-actions button:active {
-    background-color: rgba(0, 0, 0, 0.05);
-    border-radius: 0.5rem;
-}
-
-/* Amélioration des ombres pour plus de profondeur */
-.glass-card:hover {
-    box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
-}
-
-/* Style pour les notifications en mobile */
+/* Responsive */
 @media (max-width: 640px) {
+    .breadcrumb-segment {
+        font-size: .875rem;
+        padding: .125rem .375rem;
+    }
+    
+    tbody tr:hover {
+        transform: none;
+        box-shadow: none;
+    }
+    
+    .notification-container {
+        bottom: 80px;
+        right: 10px;
+        left: 10px;
+        max-width: none;
+    }
+
     .notification-container > div {
         width: 100%;
     }
 }
-
-/* --- MODIFICATIONS POUR LES NOMS DE FICHIERS ICI --- */
-
-/* Conteneur pour le nom et l'icône dans la première colonne */
-#file-list-body td:first-child > div {
-    max-width: 100%; 
-    overflow: hidden;
-    white-space: nowrap;
-    text-overflow: ellipsis; 
-}
-
-/* Ajoute un max-width à la colonne du nom pour laisser de la place aux autres colonnes */
-#file-list-body td:first-child {
-    max-width: 40vw; /* Ajuster au besoin */
-    min-width: 200px; 
-}
-
-/* Correction spécifique pour le nom du fichier (div contenant le nom et le chemin de recherche) */
-#file-list-body td:first-child > div > div {
-    overflow: hidden;
-    white-space: nowrap;
-    text-overflow: ellipsis;
-    min-width: 0;
-}
-
-/* --- FIN DES MODIFICATIONS --- */
