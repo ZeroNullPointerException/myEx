@@ -1,5 +1,4 @@
-/* 
- * Fichier CSS externe pour le Gestionnaire de Fichiers.
+/* * Fichier CSS externe pour le Gestionnaire de Fichiers.
  * Version améliorée avec transitions style Apple
  */
 
@@ -291,7 +290,12 @@ button:focus {
 /* Style pour les chemins de recherche */
 #path-display {
     position: relative;
-    overflow: visible;
+    /* --- MODIFICATIONS CORRIGÉES ICI --- */
+    overflow-x: auto; /* Permet le défilement horizontal */
+    white-space: nowrap; /* Empêche les sauts de ligne */
+    padding-bottom: 5px; /* Espace pour la barre de défilement si nécessaire */
+    /* Retire direction: rtl; pour que l'ordre soit correct */
+    /* --- FIN DES MODIFICATIONS CORRIGÉES --- */
 }
 
 /* Scrollbar personnalisée */
@@ -331,3 +335,29 @@ button:focus {
         width: 100%;
     }
 }
+
+/* --- MODIFICATIONS POUR LES NOMS DE FICHIERS ICI --- */
+
+/* Conteneur pour le nom et l'icône dans la première colonne */
+#file-list-body td:first-child > div {
+    max-width: 100%; 
+    overflow: hidden;
+    white-space: nowrap;
+    text-overflow: ellipsis; 
+}
+
+/* Ajoute un max-width à la colonne du nom pour laisser de la place aux autres colonnes */
+#file-list-body td:first-child {
+    max-width: 40vw; /* Ajuster au besoin */
+    min-width: 200px; 
+}
+
+/* Correction spécifique pour le nom du fichier (div contenant le nom et le chemin de recherche) */
+#file-list-body td:first-child > div > div {
+    overflow: hidden;
+    white-space: nowrap;
+    text-overflow: ellipsis;
+    min-width: 0;
+}
+
+/* --- FIN DES MODIFICATIONS --- */

@@ -113,6 +113,16 @@ const ui = {
                     dom.pathDisplay.innerHTML += `<span class="text-slate-400 mx-2">/</span>`;
                 }
             });
+            
+            // --- MODIFICATION CORRIGÉE ICI ---
+            // Force le défilement du chemin vers la droite (dossier actuel)
+            setTimeout(() => {
+                if (dom.pathDisplay) {
+                    // On défile jusqu'à la largeur totale pour afficher le dernier segment (le plus à droite)
+                    dom.pathDisplay.scrollLeft = dom.pathDisplay.scrollWidth; 
+                }
+            }, 50); 
+            // --- FIN DES MODIFICATIONS CORRIGÉES ---
         }
 
         // Tri des fichiers
@@ -197,8 +207,8 @@ const ui = {
                 const rowClass = file.is_folder ? 'cursor-pointer hover:bg-yellow-50' : 'cursor-pointer hover:bg-blue-50';
 
                 const displayName = isSearchResult ? 
-                    `<span class="text-xs text-slate-500 block mb-0.5">${file.full_relative_path.split('/').slice(0, -1).join('/') || '/'}</span>${file.name}` : 
-                    file.name;
+                    `<span class="text-xs text-slate-500 block mb-0.5">${file.full_relative_path.split('/').slice(0, -1).join('/') || '/'}</span><div>${file.name}</div>` : 
+                    `<div>${file.name}</div>`; // Encapsulation du nom pour la troncature CSS
 
                 tr.className = `${rowClass} transition duration-150 group`;
                 
@@ -219,7 +229,7 @@ const ui = {
                     <td class="px-4 py-3 whitespace-nowrap text-sm">
                         <div class="flex items-center ${nameClass} text-sm">
                             ${icon}
-                            <div>${displayName}</div>
+                            ${displayName} 
                         </div>
                     </td>
                     <td class="px-4 py-3 whitespace-nowrap text-sm text-slate-500 hidden sm:table-cell">
