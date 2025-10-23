@@ -1,8 +1,12 @@
 // ============================================
-// fileActions.js - Actions sur les fichiers
+// fileActions.js - Actions sur les fichiers (avec fenêtres flottantes)
 // ============================================
 
 const fileActions = {
+    longPressTimer: null,
+    longPressDelay: 500, // 500ms pour l'appui long
+    touchStartData: null,
+    
     handleFileClick(filename, path, mimeType, size) {
         const canBeViewed = fileActions.canViewFile(mimeType, filename);
         
@@ -42,18 +46,48 @@ const fileActions = {
     viewFile(path, mimeType, size) {
         contextMenu.hide();
         const filename = path.split('/').pop();
+        const isMobile = window.innerWidth <= 768;
 
+        // Comportement selon le type de fichier et l'appareil
         if (mimeType.startsWith('image/')) {
-            modal.open(filename, `<img src="${utils.buildApiUrl('view', path)}" alt="${filename}" class="max-w-full h-auto rounded-lg mx-auto shadow-xl">`);
+            if (isMobile) {
+                // Mobile : ouvrir dans un nouvel onglet par défaut
+                window.open(utils.buildApiUrl('view', path), '_blank');
+            } else {
+                // Desktop : fenêtre flottante
+                floatingViewer.createImageViewer(filename, utils.buildApiUrl('view', path));
+                notifications.show(`Image "${filename}" ouverte dans une fenêtre flottante`, 'success');
+            }
+        } else if (mimeType.startsWith('audio/')) {
+            if (isMobile) {
+                // Mobile : ouvrir dans un nouvel onglet par défaut
+                window.open(utils.buildApiUrl('view', path), '_blank');
+            } else {
+                // Desktop : fenêtre flottante
+                floatingViewer.createAudioPlayer(filename, utils.buildApiUrl('view', path));
+                notifications.show(`Lecture audio de "${filename}" démarrée`, 'success');
+            }
         } else if (mimeType.startsWith('video/')) {
             window.open(API_BASE + `/player?path=${path}`, '_blank');
-        } else if (mimeType.startsWith('audio/')) {
-            modal.open(filename, `<audio controls src="${utils.buildApiUrl('view', path)}" class="w-full mt-4"></audio>`);
         } else if (mimeType.startsWith('text/') || mimeType === 'application/json' || filename.endsWith('.log') || filename.endsWith('.py') || filename.endsWith('.html') || filename.endsWith('.css') || filename.endsWith('.js')) {
             window.open(utils.buildApiUrl('view', path), '_blank');
         } else {
             notifications.show(`Visualisation non supportée pour ${filename}. Lancement du téléchargement.`, 'warning');
             fileActions.downloadFile(path);
+        }
+    },
+    
+    // Ouvrir en mode fenêtre flottante (forcé)
+    viewFileFloating(path, mimeType) {
+        contextMenu.hide();
+        const filename = path.split('/').pop();
+        
+        if (mimeType.startsWith('image/')) {
+            floatingViewer.createImageViewer(filename, utils.buildApiUrl('view', path));
+            notifications.show(`📸 Image ouverte en fenêtre flottante`, 'success');
+        } else if (mimeType.startsWith('audio/')) {
+            floatingViewer.createAudioPlayer(filename, utils.buildApiUrl('view', path));
+            notifications.show(`🎵 Lecture audio en fenêtre flottante`, 'success');
         }
     },
 
@@ -98,5 +132,80 @@ const fileActions = {
             console.error("Erreur de suppression:", error);
             notifications.show(`Échec de la suppression: ${error.message}`, 'error');
         }
+    },
+    
+    // Gestion de l'appui long pour mobile
+    setupLongPressHandlers() {
+        // Cette fonction sera appelée lors de la génération de la liste de fichiers
+        document.addEventListener('touchstart', (e) => {
+            // Trouver si on touche une ligne de fichier
+            const fileRow = e.target.closest('tr[data-file-path]');
+            if (!fileRow) return;
+            
+            const path = fileRow.getAttribute('data-file-path');
+            const name = fileRow.getAttribute('data-file-name');
+            const mimeType = fileRow.getAttribute('data-mime-type');
+            const size = fileRow.getAttribute('data-file-size');
+            const isFolder = fileRow.getAttribute('data-is-folder') === 'true';
+            
+            // Sauvegarder les données
+            fileActions.touchStartData = { path, name, mimeType, size, isFolder };
+            
+            // Démarrer le timer d'appui long
+            fileActions.longPressTimer = setTimeout(() => {
+                // Appui long détecté
+                e.preventDefault();
+                
+                // Vibration si supportée
+                if (navigator.vibrate) {
+                    navigator.vibrate(50);
+                }
+                
+                // Afficher le menu contextuel
+                const touch = e.touches[0];
+                const fakeEvent = {
+                    preventDefault: () => {},
+                    pageX: touch.pageX,
+                    pageY: touch.pageY
+                };
+                
+                contextMenu.show(fakeEvent, name, path, mimeType, size, isFolder);
+                
+            }, fileActions.longPressDelay);
+            
+        }, { passive: false });
+        
+        document.addEventListener('touchmove', (e) => {
+            // Annuler l'appui long si on bouge le doigt
+            if (fileActions.longPressTimer) {
+                clearTimeout(fileActions.longPressTimer);
+                fileActions.longPressTimer = null;
+            }
+        });
+        
+        document.addEventListener('touchend', (e) => {
+            // Annuler l'appui long
+            if (fileActions.longPressTimer) {
+                clearTimeout(fileActions.longPressTimer);
+                fileActions.longPressTimer = null;
+            }
+        });
+        
+        document.addEventListener('touchcancel', (e) => {
+            // Annuler l'appui long
+            if (fileActions.longPressTimer) {
+                clearTimeout(fileActions.longPressTimer);
+                fileActions.longPressTimer = null;
+            }
+        });
     }
 };
+
+// Initialiser les handlers d'appui long au chargement
+if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', () => {
+        fileActions.setupLongPressHandlers();
+    });
+} else {
+    fileActions.setupLongPressHandlers();
+}
