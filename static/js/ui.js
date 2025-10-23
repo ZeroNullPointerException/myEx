@@ -34,7 +34,9 @@ const ui = {
             return;
         }
         
-        // Animation simple et fluide
+        // Animation simple et fluide avec conservation de la hauteur
+        const currentHeight = dom.fileListBody.offsetHeight;
+        dom.fileListBody.style.minHeight = currentHeight + 'px';
         dom.fileListBody.style.opacity = '0';
         dom.fileListBody.style.transform = 'translateY(-10px)';
         
@@ -50,6 +52,7 @@ const ui = {
             
             setTimeout(() => {
                 dom.fileListBody.style.transition = '';
+                dom.fileListBody.style.minHeight = '';
             }, 300);
         }, 150);
     },
@@ -61,21 +64,20 @@ const ui = {
         // Affichage de la barre d'adresse
         if (isSearchResult) {
             state.isSearchMode = true;
-            // CORRECTION: S'assurer que path est une chaîne pour éviter le TypeError
             const pathString = String(path || ""); 
             const searchTerm = pathString.replace("Recherche: '", "").replace("'", "");
             dom.pathDisplay.innerHTML = `
                 <div class="flex items-center justify-between flex-wrap gap-2">
-                    <div class="flex items-center gap-2">
-                        <i class="fas fa-search text-blue-600"></i>
-                        <span class="text-slate-600">Résultats pour :</span> 
-                        <span class="font-bold text-blue-700">${searchTerm}</span>
-                        <span class="text-slate-500 text-sm">(${files.length} résultat${files.length > 1 ? 's' : ''})</span>
+                    <div class="flex items-center gap-2 min-w-0 flex-1">
+                        <i class="fas fa-search text-blue-600 flex-shrink-0"></i>
+                        <span class="text-slate-600 flex-shrink-0">Résultats pour :</span> 
+                        <span class="font-bold text-blue-700 truncate" title="${searchTerm}">${searchTerm}</span>
+                        <span class="text-slate-500 text-sm flex-shrink-0">(${files.length} résultat${files.length > 1 ? 's' : ''})</span>
                     </div>
                     <button onclick="search.exitSearchMode()" 
-                            class="flex items-center gap-2 px-3 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg transition duration-150 text-sm font-medium">
+                            class="flex items-center gap-2 px-3 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg transition duration-150 text-sm font-medium flex-shrink-0">
                         <i class="fas fa-times"></i>
-                        <span>Quitter la recherche</span>
+                        <span>Quitter</span>
                     </button>
                 </div>
             `;
@@ -86,7 +88,8 @@ const ui = {
 
             dom.pathDisplay.innerHTML += `
                 <span class="breadcrumb-segment text-slate-400 hover:text-blue-700 cursor-pointer transition duration-150" 
-                      onclick="navigation.navigateToFolder('${ROOT_PATH}')">
+                      onclick="navigation.navigateToFolder('${ROOT_PATH}')"
+                      title="Racine">
                     <i class="fas fa-home"></i> Racine
                 </span>
                 <span class="text-slate-400 mx-2">/</span>
@@ -99,7 +102,8 @@ const ui = {
                 
                 const segmentHtml = `
                     <span class="breadcrumb-segment ${isLast ? 'text-slate-800 font-bold' : 'text-slate-600 hover:text-blue-700 cursor-pointer'} transition duration-150"
-                          onclick="navigation.navigateToFolder('${finalPath}')">
+                          onclick="navigation.navigateToFolder('${finalPath}')"
+                          title="${segment}">
                         ${segment}
                     </span>
                 `;
@@ -142,7 +146,7 @@ const ui = {
                 backRow.onclick = () => navigation.navigateUp();
                 backRow.innerHTML = `
                     <td class="flex items-center px-4 py-3 whitespace-nowrap text-slate-600 font-medium">
-                        <i class="fas fa-level-up-alt w-5 text-center mr-3 text-slate-400 group-hover:text-blue-600 transition duration-150"></i>
+                        <i class="fas fa-level-up-alt w-5 text-center mr-3 text-slate-400 group-hover:text-blue-600 transition duration-150 flex-shrink-0"></i>
                         <span class="group-hover:text-blue-700 transition duration-150">... (Remonter)</span>
                     </td>
                     <td colspan="3" class="px-4 py-3 text-sm text-slate-500"></td>
@@ -173,7 +177,7 @@ const ui = {
             backRow.onclick = () => navigation.navigateUp();
             backRow.innerHTML = `
                 <td class="flex items-center px-4 py-3 whitespace-nowrap text-slate-600 font-medium">
-                    <i class="fas fa-level-up-alt w-5 text-center mr-3 text-slate-400 group-hover:text-blue-600 transition duration-150"></i>
+                    <i class="fas fa-level-up-alt w-5 text-center mr-3 text-slate-400 group-hover:text-blue-600 transition duration-150 flex-shrink-0"></i>
                     <span class="group-hover:text-blue-700 transition duration-150">... (Remonter)</span>
                 </td>
                 <td colspan="3" class="px-4 py-3 text-sm text-slate-500"></td>
@@ -194,15 +198,23 @@ const ui = {
                 const tr = document.createElement('tr');
                 
                 const icon = file.is_folder ? 
-                    '<i class="fas fa-folder text-yellow-500 w-5 text-center mr-3"></i>' : 
+                    '<i class="fas fa-folder text-yellow-500 w-5 text-center mr-3 flex-shrink-0"></i>' : 
                     utils.getFileIcon(file.name);
                 
                 const nameClass = file.is_folder ? 'font-medium text-blue-600' : 'text-slate-800';
                 const rowClass = file.is_folder ? 'cursor-pointer hover:bg-yellow-50' : 'cursor-pointer hover:bg-blue-50';
 
-                const displayName = isSearchResult ? 
-                    `<span class="text-xs text-slate-500 block mb-0.5">${file.full_relative_path.split('/').slice(0, -1).join('/') || '/'}</span><div>${file.name}</div>` : 
-                    `<div>${file.name}</div>`; // Encapsulation du nom pour la troncature CSS
+                // Amélioration de l'affichage avec title pour tooltip
+                let displayName;
+                if (isSearchResult) {
+                    const parentPath = file.full_relative_path.split('/').slice(0, -1).join('/') || '/';
+                    displayName = `
+                        <span class="text-xs text-slate-500 block mb-0.5 truncate" title="${parentPath}">${parentPath}</span>
+                        <div class="truncate" title="${file.name}">${file.name}</div>
+                    `;
+                } else {
+                    displayName = `<div class="truncate" title="${file.name}">${file.name}</div>`;
+                }
 
                 tr.className = `${rowClass} transition duration-150 group`;
                 
@@ -221,19 +233,19 @@ const ui = {
 
                 tr.innerHTML = `
                     <td class="px-4 py-3 whitespace-nowrap text-sm">
-                        <div class="flex items-center ${nameClass} text-sm">
+                        <div class="flex items-center ${nameClass} text-sm min-w-0">
                             ${icon}
-                            <div>${displayName}</div>
+                            <div class="min-w-0 flex-1">${displayName}</div>
                         </div>
                     </td>
                     <td class="px-4 py-3 whitespace-nowrap text-sm text-slate-500 hidden sm:table-cell">
                         ${file.is_folder ? '-' : utils.formatBytes(file.size)}
                     </td>
-                    <td class="px-4 py-3 whitespace-nowrap text-sm text-slate-500 hidden md:table-cell">
+                    <td class="px-4 py-3 whitespace-nowrap text-sm text-slate-500 hidden md:table-cell" title="${new Date(file.modified).toLocaleString('fr-FR')}">
                         ${new Date(file.modified).toLocaleString('fr-FR')}
                     </td>
                     <td class="px-4 py-3 text-right whitespace-nowrap text-sm font-medium">
-                        <button class="text-slate-400 hover:text-blue-600 p-2 rounded-full opacity-0 group-hover:opacity-100 transition-opacity duration-150" 
+                        <button class="text-slate-400 hover:text-blue-600 p-2 rounded-full opacity-0 group-hover:opacity-100 transition-opacity duration-150 flex-shrink-0" 
                                 title="Plus d'options">
                             <i class="fas fa-ellipsis-v"></i>
                         </button>
@@ -275,56 +287,52 @@ const ui = {
    ============================================ */
 
 (function() {
-    // 1. Définir les éléments à cibler
     const mobileActionsBar = document.querySelector('.mobile-actions');
-    const titleContainer = document.querySelector('.glass-card'); // Conteneur principal/titre
+    const titleContainer = document.querySelector('.glass-card');
     
     if (!mobileActionsBar && !titleContainer) return;
 
     let lastScrollY = window.scrollY;
     let isMobile = window.innerWidth <= 640; 
+    let ticking = false;
 
-    // 2. Fonction pour gérer la classe
     const handleScroll = () => {
-        const currentScrollY = window.scrollY;
+        if (!ticking) {
+            window.requestAnimationFrame(() => {
+                const currentScrollY = window.scrollY;
 
-        // LOGIQUE POUR LA CARTE/TITRE SUPERIEUR (S'applique sur tous les écrans)
-        if (titleContainer) {
-             // Cacher la carte (défilement vers le BAS)
-            if (currentScrollY > lastScrollY && currentScrollY > 100) { 
-                titleContainer.classList.add('hidden-up');
-            } 
-            // Afficher la carte (défilement vers le HAUT ou au sommet)
-            else if (currentScrollY < lastScrollY || currentScrollY < 100) {
-                titleContainer.classList.remove('hidden-up');
-            }
+                // LOGIQUE POUR LA CARTE/TITRE SUPERIEUR
+                if (titleContainer) {
+                    if (currentScrollY > lastScrollY && currentScrollY > 100) { 
+                        titleContainer.classList.add('hidden-up');
+                    } else if (currentScrollY < lastScrollY || currentScrollY < 100) {
+                        titleContainer.classList.remove('hidden-up');
+                    }
+                }
+
+                // LOGIQUE POUR LA BARRE MOBILE
+                isMobile = window.innerWidth <= 640; 
+                if (mobileActionsBar && isMobile) {
+                    if (currentScrollY > lastScrollY && currentScrollY > 100) { 
+                        mobileActionsBar.classList.add('hidden-down');
+                    } else if (currentScrollY < lastScrollY || currentScrollY < 100) {
+                        mobileActionsBar.classList.remove('hidden-down');
+                    }
+                }
+
+                lastScrollY = currentScrollY;
+                ticking = false;
+            });
+            ticking = true;
         }
-
-        // LOGIQUE POUR LA BARRE MOBILE (Uniquement sur mobile)
-        isMobile = window.innerWidth <= 640; 
-        if (mobileActionsBar && isMobile) {
-            // Défilement vers le BAS (et pas juste au début de la page)
-            if (currentScrollY > lastScrollY && currentScrollY > 100) { 
-                mobileActionsBar.classList.add('hidden-down');
-            } 
-            // Défilement vers le HAUT ou au tout début de la page
-            else if (currentScrollY < lastScrollY || currentScrollY < 100) {
-                mobileActionsBar.classList.remove('hidden-down');
-            }
-        }
-
-        lastScrollY = currentScrollY;
     };
     
-    // 3. Détecter le changement de taille (pour la logique mobile)
     window.addEventListener('resize', () => {
         isMobile = window.innerWidth <= 640;
-        // S'assurer que la barre mobile est visible si l'on passe en mode desktop
         if (mobileActionsBar && !isMobile) {
             mobileActionsBar.classList.remove('hidden-down');
         }
     });
 
-    // 4. Attacher l'écouteur d'événement
     window.addEventListener('scroll', handleScroll, { passive: true });
 })();
