@@ -7,9 +7,14 @@ const floatingViewer = {
     nextZIndex: 1000,
     isMobile: window.innerWidth <= 768,
     
-    createImageViewer(filename, imageUrl) {
+    createImageViewer(filename, imageUrl, asPopup = false) {
         const viewerId = 'viewer-' + Date.now();
         const isMobile = this.isMobile;
+        
+        // Mode fenêtre popup indépendante
+        if (asPopup && !isMobile) {
+            return this.createPopupWindow(filename, imageUrl, 'image');
+        }
         
         const viewer = document.createElement('div');
         viewer.id = viewerId;
@@ -19,112 +24,62 @@ const floatingViewer = {
         const initialWidth = isMobile ? (window.innerWidth - 20) : 400;
         const initialHeight = isMobile ? (window.innerHeight * 0.6) : 500;
         
-        viewer.style.cssText = `
-            position: fixed;
-            top: ${isMobile ? '10px' : '80px'};
-            left: ${isMobile ? '10px' : 'auto'};
-            right: ${isMobile ? '10px' : '20px'};
-            width: ${initialWidth}px;
-            height: ${initialHeight}px;
-            min-width: 250px;
-            min-height: 200px;
-            background: rgba(255, 255, 255, 0.98);
-            backdrop-filter: blur(15px);
-            border: 1px solid rgba(226, 232, 240, 0.4);
-            box-shadow: 0 10px 40px rgba(0, 0, 0, 0.2);
-            border-radius: 12px;
-            overflow: hidden;
-            z-index: ${this.nextZIndex++};
-            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-        `;
+        // Seulement les styles dynamiques
+        viewer.style.top = isMobile ? '10px' : '80px';
+        viewer.style.left = isMobile ? '10px' : 'auto';
+        viewer.style.right = isMobile ? '10px' : '20px';
+        viewer.style.width = initialWidth + 'px';
+        viewer.style.height = initialHeight + 'px';
+        viewer.style.zIndex = this.nextZIndex++;
         
         viewer.innerHTML = `
-            <div class="viewer-header" style="
-                background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-                padding: 12px 16px;
-                display: flex;
-                justify-content: space-between;
-                align-items: center;
-                cursor: move;
-                user-select: none;
-            ">
+            <div class="viewer-header viewer-header-image">
                 <div class="flex items-center gap-2 flex-1 min-w-0">
-                    <i class="fas fa-image text-white"></i>
-                    <span class="text-white font-semibold text-sm truncate" title="${filename}">${filename}</span>
+                    <i class="fas fa-image"></i>
+                    <span title="${filename}">${filename}</span>
                 </div>
                 <div class="flex gap-2">
+                    <button onclick="event.stopPropagation(); floatingViewer.openAsPopup('${viewerId}', '${filename}', '${imageUrl}', 'image')" 
+                            class="popup-btn"
+                            title="Ouvrir dans une nouvelle fenêtre">
+                        <i class="fas fa-external-link-alt"></i>
+                    </button>
                     <button onclick="event.stopPropagation(); floatingViewer.toggleFullscreen('${viewerId}')" 
-                            class="fullscreen-btn text-white hover:bg-white/20 w-9 h-9 rounded transition flex items-center justify-center"
-                            style="touch-action: manipulation; -webkit-tap-highlight-color: transparent;"
+                            class="fullscreen-btn"
                             title="Plein écran">
-                        <i class="fas fa-expand text-sm"></i>
+                        <i class="fas fa-expand"></i>
                     </button>
                     <button onclick="event.stopPropagation(); floatingViewer.minimizeWindow('${viewerId}')" 
-                            class="minimize-btn text-white hover:bg-white/20 w-9 h-9 rounded transition flex items-center justify-center"
-                            style="touch-action: manipulation; -webkit-tap-highlight-color: transparent;"
+                            class="minimize-btn"
                             title="Réduire">
-                        <i class="fas fa-minus text-sm"></i>
+                        <i class="fas fa-minus"></i>
                     </button>
                     <button onclick="event.stopPropagation(); floatingViewer.closeWindow('${viewerId}')" 
-                            class="text-white hover:bg-white/20 w-9 h-9 rounded transition flex items-center justify-center"
-                            style="touch-action: manipulation; -webkit-tap-highlight-color: transparent;"
                             title="Fermer">
-                        <i class="fas fa-times text-sm"></i>
+                        <i class="fas fa-times"></i>
                     </button>
                 </div>
             </div>
-            <div class="viewer-content" style="
-                padding: 0;
-                height: calc(100% - 110px);
-                overflow: auto;
-                position: relative;
-                display: flex;
-                align-items: center;
-                justify-content: center;
-                background: #f8fafc;
-            ">
+            <div class="viewer-content viewer-content-image">
                 <img src="${imageUrl}" 
                      alt="${filename}" 
-                     style="max-width: 100%; max-height: 100%; width: auto; height: auto; display: block; cursor: zoom-in; object-fit: contain;"
                      onclick="floatingViewer.toggleImageZoom(this)">
             </div>
-            <div class="viewer-footer" style="
-                padding: 8px 16px;
-                background: #f8fafc;
-                border-top: 1px solid #e2e8f0;
-                display: flex;
-                justify-content: space-between;
-                align-items: center;
-                flex-wrap: wrap;
-                gap: 8px;
-            ">
+            <div class="viewer-footer">
                 <button onclick="event.stopPropagation(); floatingViewer.downloadFromViewer('${imageUrl}', '${filename}')"
-                        class="text-sm text-slate-600 hover:text-blue-600 transition flex items-center gap-2"
-                        style="touch-action: manipulation; -webkit-tap-highlight-color: transparent; padding: 8px;">
+                        class="download-btn">
                     <i class="fas fa-download"></i>
                     <span>Télécharger</span>
                 </button>
                 <button onclick="event.stopPropagation(); floatingViewer.toggleMagnetic('${viewerId}')"
-                        class="magnetic-btn text-sm transition flex items-center gap-2"
-                        style="color: #3b82f6; font-weight: 600; touch-action: manipulation; -webkit-tap-highlight-color: transparent; padding: 8px;"
+                        class="magnetic-btn"
                         title="Aimantation activée">
                     <i class="fas fa-magnet"></i>
                     <span class="magnetic-status">ON</span>
                 </button>
             </div>
-            <div class="resize-handle" style="
-                position: absolute;
-                bottom: 0;
-                right: 0;
-                width: 40px;
-                height: 40px;
-                cursor: nwse-resize;
-                touch-action: none;
-                background: linear-gradient(135deg, transparent 50%, rgba(100, 116, 139, 0.5) 50%);
-                border-bottom-right-radius: 12px;
-                z-index: 10;
-            ">
-                <i class="fas fa-expand-alt" style="position: absolute; bottom: 4px; right: 4px; color: rgba(100, 116, 139, 0.6); font-size: 12px;"></i>
+            <div class="resize-handle">
+                <i class="fas fa-expand-alt"></i>
             </div>
         `;
         
@@ -141,9 +96,14 @@ const floatingViewer = {
         return viewerId;
     },
     
-    createAudioPlayer(filename, audioUrl) {
+    createAudioPlayer(filename, audioUrl, asPopup = false) {
         const playerId = 'player-' + Date.now();
         const isMobile = this.isMobile;
+        
+        // Mode fenêtre popup indépendante
+        if (asPopup && !isMobile) {
+            return this.createPopupWindow(filename, audioUrl, 'audio');
+        }
         
         const player = document.createElement('div');
         player.id = playerId;
@@ -152,101 +112,62 @@ const floatingViewer = {
         // Position et largeur adaptées
         const initialWidth = isMobile ? (window.innerWidth - 20) : 350;
         
-        player.style.cssText = `
-            position: fixed;
-            bottom: ${isMobile ? '80px' : '20px'};
-            left: ${isMobile ? '10px' : 'auto'};
-            right: ${isMobile ? '10px' : '20px'};
-            width: ${initialWidth}px;
-            min-width: 250px;
-            background: rgba(255, 255, 255, 0.98);
-            backdrop-filter: blur(15px);
-            border: 1px solid rgba(226, 232, 240, 0.4);
-            box-shadow: 0 10px 40px rgba(0, 0, 0, 0.2);
-            border-radius: 12px;
-            overflow: hidden;
-            z-index: ${this.nextZIndex++};
-            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-        `;
+        // Seulement les styles dynamiques
+        player.style.bottom = isMobile ? '80px' : '20px';
+        player.style.left = isMobile ? '10px' : 'auto';
+        player.style.right = isMobile ? '10px' : '20px';
+        player.style.width = initialWidth + 'px';
+        player.style.zIndex = this.nextZIndex++;
         
         player.innerHTML = `
-            <div class="viewer-header" style="
-                background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
-                padding: 12px 16px;
-                display: flex;
-                justify-content: space-between;
-                align-items: center;
-                cursor: move;
-                user-select: none;
-            ">
+            <div class="viewer-header viewer-header-audio">
                 <div class="flex items-center gap-2 flex-1 min-w-0">
-                    <i class="fas fa-music text-white"></i>
-                    <span class="text-white font-semibold text-sm truncate" title="${filename}">${filename}</span>
+                    <i class="fas fa-music"></i>
+                    <span title="${filename}">${filename}</span>
                 </div>
                 <div class="flex gap-2">
+                    <button onclick="event.stopPropagation(); floatingViewer.openAsPopup('${playerId}', '${filename}', '${audioUrl}', 'audio')" 
+                            class="popup-btn"
+                            title="Ouvrir dans une nouvelle fenêtre">
+                        <i class="fas fa-external-link-alt"></i>
+                    </button>
                     <button onclick="event.stopPropagation(); floatingViewer.toggleFullscreen('${playerId}')" 
-                            class="fullscreen-btn text-white hover:bg-white/20 w-9 h-9 rounded transition flex items-center justify-center"
-                            style="touch-action: manipulation; -webkit-tap-highlight-color: transparent;"
+                            class="fullscreen-btn"
                             title="Plein écran">
-                        <i class="fas fa-expand text-sm"></i>
+                        <i class="fas fa-expand"></i>
                     </button>
                     <button onclick="event.stopPropagation(); floatingViewer.minimizeWindow('${playerId}')" 
-                            class="minimize-btn text-white hover:bg-white/20 w-9 h-9 rounded transition flex items-center justify-center"
-                            style="touch-action: manipulation; -webkit-tap-highlight-color: transparent;"
+                            class="minimize-btn"
                             title="Réduire">
-                        <i class="fas fa-minus text-sm"></i>
+                        <i class="fas fa-minus"></i>
                     </button>
                     <button onclick="event.stopPropagation(); floatingViewer.closeWindow('${playerId}')" 
-                            class="text-white hover:bg-white/20 w-9 h-9 rounded transition flex items-center justify-center"
-                            style="touch-action: manipulation; -webkit-tap-highlight-color: transparent;"
                             title="Fermer">
-                        <i class="fas fa-times text-sm"></i>
+                        <i class="fas fa-times"></i>
                     </button>
                 </div>
             </div>
-            <div class="viewer-content" style="padding: 16px;">
-                <audio id="${playerId}-audio" controls style="width: 100%;" autoplay>
+            <div class="viewer-content viewer-content-audio">
+                <audio id="${playerId}-audio" controls autoplay>
                     <source src="${audioUrl}" type="audio/mpeg">
                     Votre navigateur ne supporte pas la lecture audio.
                 </audio>
             </div>
-            <div class="viewer-footer" style="
-                padding: 8px 16px;
-                background: #f8fafc;
-                border-top: 1px solid #e2e8f0;
-                display: flex;
-                justify-content: space-between;
-                align-items: center;
-                flex-wrap: wrap;
-                gap: 8px;
-            ">
+            <div class="viewer-footer">
                 <button onclick="event.stopPropagation(); floatingViewer.downloadFromViewer('${audioUrl}', '${filename}')"
-                        class="text-sm text-slate-600 hover:text-blue-600 transition flex items-center gap-2"
-                        style="touch-action: manipulation; -webkit-tap-highlight-color: transparent; padding: 8px;">
+                        class="download-btn">
                     <i class="fas fa-download"></i>
                     <span>Télécharger</span>
                 </button>
                 <button onclick="event.stopPropagation(); floatingViewer.toggleMagnetic('${playerId}')"
-                        class="magnetic-btn text-sm transition flex items-center gap-2"
-                        style="color: #3b82f6; font-weight: 600; touch-action: manipulation; -webkit-tap-highlight-color: transparent; padding: 8px;"
+                        class="magnetic-btn"
                         title="Aimantation activée">
                     <i class="fas fa-magnet"></i>
                     <span class="magnetic-status">ON</span>
                 </button>
             </div>
-            <div class="resize-handle-horizontal" style="
-                position: absolute;
-                bottom: 0;
-                right: 0;
-                width: 40px;
-                height: 40px;
-                cursor: ew-resize;
-                touch-action: none;
-                background: linear-gradient(135deg, transparent 50%, rgba(100, 116, 139, 0.5) 50%);
-                border-bottom-right-radius: 12px;
-                z-index: 10;
-            ">
-                <i class="fas fa-arrows-alt-h" style="position: absolute; bottom: 4px; right: 4px; color: rgba(100, 116, 139, 0.6); font-size: 12px;"></i>
+            <div class="resize-handle-horizontal">
+                <i class="fas fa-arrows-alt-h"></i>
             </div>
         `;
         
@@ -283,13 +204,7 @@ const floatingViewer = {
             currentX = clientX - initialX;
             currentY = clientY - initialY;
             
-            const rect = element.getBoundingClientRect();
-            const maxX = window.innerWidth - rect.width;
-            const maxY = window.innerHeight - rect.height;
-            
-            currentX = Math.max(0, Math.min(currentX, maxX));
-            currentY = Math.max(0, Math.min(currentY, maxY));
-            
+            // Pas de contrainte - la fenêtre peut sortir du cadre
             element.style.left = currentX + 'px';
             element.style.top = currentY + 'px';
             element.style.right = 'auto';
@@ -365,15 +280,13 @@ const floatingViewer = {
             const deltaX = clientX - startX;
             const deltaY = clientY - startY;
             
-            // Largeur
-            const maxWidth = window.innerWidth - startLeft - 10;
-            const newWidth = Math.max(250, Math.min(startWidth + deltaX, maxWidth));
+            // Largeur - Pas de limite maximale
+            const newWidth = Math.max(250, startWidth + deltaX);
             element.style.width = newWidth + 'px';
             
             // Hauteur (seulement pour images et si pas horizontal only)
             if (isImage && !isHorizontalOnly) {
-                const maxHeight = window.innerHeight - startTop - 10;
-                const newHeight = Math.max(250, Math.min(startHeight + deltaY, maxHeight));
+                const newHeight = Math.max(250, startHeight + deltaY);
                 element.style.height = newHeight + 'px';
                 
                 const content = element.querySelector('.viewer-content');
@@ -680,13 +593,11 @@ const floatingViewer = {
         const statusSpan = button.querySelector('.magnetic-status');
         
         if (window.magnetic) {
-            button.style.color = '#3b82f6';
-            button.style.fontWeight = '600';
+            button.classList.remove('inactive');
             button.title = 'Aimantation activée';
             if (statusSpan) statusSpan.textContent = 'ON';
         } else {
-            button.style.color = '#64748b';
-            button.style.fontWeight = '400';
+            button.classList.add('inactive');
             button.title = 'Aimantation désactivée';
             if (statusSpan) statusSpan.textContent = 'OFF';
         }
@@ -795,6 +706,172 @@ const floatingViewer = {
                 element.style.right = '10px';
             }
         });
+    },
+    
+    // Créer une fenêtre popup indépendante
+    createPopupWindow(filename, url, type) {
+        const width = type === 'image' ? 800 : 400;
+        const height = type === 'image' ? 600 : 200;
+        
+        // Position centrée sur l'écran
+        const left = (screen.width - width) / 2;
+        const top = (screen.height - height) / 2;
+        
+        const features = `
+            width=${width},
+            height=${height},
+            left=${left},
+            top=${top},
+            resizable=yes,
+            scrollbars=yes,
+            status=no,
+            toolbar=no,
+            menubar=no,
+            location=no
+        `.replace(/\s+/g, '');
+        
+        const popup = window.open('', `viewer_${Date.now()}`, features);
+        
+        if (!popup) {
+            if (typeof notifications !== 'undefined') {
+                notifications.show('⚠️ Les popups sont bloquées. Autorisez-les pour ce site.', 'warning');
+            }
+            return null;
+        }
+        
+        // Injecter le contenu dans la popup
+        popup.document.write(`
+            <!DOCTYPE html>
+            <html>
+            <head>
+                <meta charset="UTF-8">
+                <meta name="viewport" content="width=device-width, initial-scale=1.0">
+                <title>${filename}</title>
+                <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+                <style>
+                    * { margin: 0; padding: 0; box-sizing: border-box; }
+                    body {
+                        font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+                        background: #f8fafc;
+                        display: flex;
+                        flex-direction: column;
+                        height: 100vh;
+                        overflow: hidden;
+                    }
+                    .header {
+                        background: ${type === 'image' ? 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)' : 'linear-gradient(135deg, #f093fb 0%, #f5576c 100%)'};
+                        color: white;
+                        padding: 16px 20px;
+                        display: flex;
+                        justify-content: space-between;
+                        align-items: center;
+                        box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+                    }
+                    .header-title {
+                        display: flex;
+                        align-items: center;
+                        gap: 12px;
+                        font-weight: 600;
+                        font-size: 14px;
+                    }
+                    .content {
+                        flex: 1;
+                        display: flex;
+                        align-items: center;
+                        justify-content: center;
+                        padding: 20px;
+                        overflow: auto;
+                        background: white;
+                    }
+                    .content img {
+                        max-width: 100%;
+                        max-height: 100%;
+                        object-fit: contain;
+                        box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+                        border-radius: 8px;
+                    }
+                    .content audio {
+                        width: 100%;
+                        max-width: 500px;
+                    }
+                    .footer {
+                        padding: 12px 20px;
+                        background: #f8fafc;
+                        border-top: 1px solid #e2e8f0;
+                        display: flex;
+                        justify-content: center;
+                        gap: 12px;
+                    }
+                    button {
+                        padding: 8px 16px;
+                        border: none;
+                        border-radius: 6px;
+                        background: #3b82f6;
+                        color: white;
+                        font-size: 14px;
+                        cursor: pointer;
+                        transition: all 0.2s;
+                        display: flex;
+                        align-items: center;
+                        gap: 8px;
+                    }
+                    button:hover {
+                        background: #2563eb;
+                        transform: translateY(-1px);
+                    }
+                    button:active {
+                        transform: translateY(0);
+                    }
+                </style>
+            </head>
+            <body>
+                <div class="header">
+                    <div class="header-title">
+                        <i class="fas fa-${type === 'image' ? 'image' : 'music'}"></i>
+                        <span>${filename}</span>
+                    </div>
+                </div>
+                <div class="content">
+                    ${type === 'image' 
+                        ? `<img src="${url}" alt="${filename}">` 
+                        : `<audio controls autoplay>
+                               <source src="${url}" type="audio/mpeg">
+                               Votre navigateur ne supporte pas la lecture audio.
+                           </audio>`
+                    }
+                </div>
+                <div class="footer">
+                    <button onclick="window.open('${url.replace('/view', '/download')}', '_blank')">
+                        <i class="fas fa-download"></i>
+                        Télécharger
+                    </button>
+                    <button onclick="window.close()">
+                        <i class="fas fa-times"></i>
+                        Fermer
+                    </button>
+                </div>
+            </body>
+            </html>
+        `);
+        
+        popup.document.close();
+        
+        if (typeof notifications !== 'undefined') {
+            notifications.show(`🪟 ${filename} ouvert dans une nouvelle fenêtre`, 'success');
+        }
+        
+        return popup;
+    },
+    
+    // Ouvrir la fenêtre flottante en popup et la fermer
+    openAsPopup(viewerId, filename, url, type) {
+        // Créer la popup
+        const popup = this.createPopupWindow(filename, url, type);
+        
+        // Si la popup a été créée avec succès, fermer la fenêtre flottante
+        if (popup) {
+            this.closeWindow(viewerId);
+        }
     }
 };
 
