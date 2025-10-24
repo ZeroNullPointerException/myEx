@@ -272,7 +272,7 @@ const floatingViewer = {
             html += '<div class="folder-path" style="padding: 12px; background: #f8fafc; border-bottom: 1px solid #e2e8f0; font-size: 12px; color: #64748b;">';
             html += '<i class="fas fa-folder mr-2"></i>' + folderPath;
             html += '</div>';
-            html += '<div class="folder-items" style="overflow-y: auto; max-height: calc(100% - 45px);">';
+            html += '<div class="folder-items" style="overflow-y: auto; max-height: calc(100% - 45px); min-height: 200px; padding-bottom: 40px;">';
             
             if (folderPath !== '/' && folderPath !== '') {
                 const parentPath = folderPath.split('/').slice(0, -1).join('/') || '/';
@@ -293,7 +293,12 @@ const floatingViewer = {
                 // Nettoyer les doubles slashes
                 fullPath = fullPath.replace(/\/+/g, '/');
                 
-                html += '<div class="folder-item" onclick="floatingViewer.loadFolderContent(\'' + viewerId + '\', \'' + fullPath + '\')" ';
+                html += '<div class="folder-item" ';
+                html += 'draggable="true" ';
+                html += 'data-name="' + folderName + '" ';
+                html += 'data-path="' + fullPath + '" ';
+                html += 'data-is-folder="true" ';
+                html += 'onclick="floatingViewer.loadFolderContent(\'' + viewerId + '\', \'' + fullPath + '\')" ';
                 html += 'style="padding: 10px 12px; border-bottom: 1px solid #f1f5f9; cursor: pointer; display: flex; align-items: center; gap: 10px; transition: background 0.15s;" ';
                 html += 'onmouseover="this.style.background=\'#f8fafc\'" onmouseout="this.style.background=\'white\'">';
                 html += '<i class="fas fa-folder text-yellow-500" style="width: 20px;"></i>';
@@ -311,7 +316,13 @@ const floatingViewer = {
                 const mimeType = file.mime_type || file.mimeType || file.type || '';
                 const fileSize = file.size || 0;
                 const icon = this.getFileIconForViewer(fileName);
-                html += '<div class="folder-item" onclick="floatingViewer.handleFileInViewer(\'' + fileName.replace(/'/g, "\\'") + '\', \'' + fullPath.replace(/'/g, "\\'") + '\', \'' + mimeType + '\')" ';
+                
+                html += '<div class="folder-item" ';
+                html += 'draggable="true" ';
+                html += 'data-name="' + fileName + '" ';
+                html += 'data-path="' + fullPath + '" ';
+                html += 'data-is-folder="false" ';
+                html += 'onclick="floatingViewer.handleFileInViewer(\'' + fileName.replace(/'/g, "\\'") + '\', \'' + fullPath.replace(/'/g, "\\'") + '\', \'' + mimeType + '\')" ';
                 html += 'style="padding: 10px 12px; border-bottom: 1px solid #f1f5f9; cursor: pointer; display: flex; align-items: center; gap: 10px; transition: background 0.15s;" ';
                 html += 'onmouseover="this.style.background=\'#f8fafc\'" onmouseout="this.style.background=\'white\'">';
                 html += icon;
@@ -322,6 +333,9 @@ const floatingViewer = {
             
             html += '</div></div>';
             content.innerHTML = html;
+            
+            // Attacher les événements de drag & drop
+            this.attachDragAndDropEvents(viewerId, folderPath);
             
             const headerSpan = viewer.querySelector('.viewer-header span');
             if (headerSpan) {
@@ -987,6 +1001,247 @@ const floatingViewer = {
         }
         
         return popup;
+    },
+    
+    attachDragAndDropEvents(viewerId, currentFolderPath) {
+        const viewer = document.getElementById(viewerId);
+        if (!viewer) return;
+        
+        const items = viewer.querySelectorAll('.folder-item[draggable="true"]');
+        const folderItems = viewer.querySelectorAll('.folder-item[data-is-folder="true"]');
+        const folderItemsContainer = viewer.querySelector('.folder-items');
+        const folderBrowser = viewer.querySelector('.folder-browser');
+        
+        // Événements de drag sur les items
+        items.forEach(item => {
+            item.addEventListener('dragstart', (e) => {
+                e.stopPropagation();
+                const name = item.getAttribute('data-name');
+                const path = item.getAttribute('data-path');
+                const isFolder = item.getAttribute('data-is-folder') === 'true';
+                
+                e.dataTransfer.effectAllowed = 'move';
+                e.dataTransfer.setData('text/plain', JSON.stringify({
+                    name: name,
+                    path: path,
+                    isFolder: isFolder
+                }));
+                
+                item.style.opacity = '0.5';
+                item.classList.add('dragging');
+                
+                console.log('Drag started:', { name, path, isFolder });
+            });
+            
+            item.addEventListener('dragend', (e) => {
+                e.stopPropagation();
+                item.style.opacity = '1';
+                item.classList.remove('dragging');
+            });
+        });
+        
+        // Événements de drop sur les dossiers
+        folderItems.forEach(folderItem => {
+            folderItem.addEventListener('dragover', (e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                e.dataTransfer.dropEffect = 'move';
+                
+                // Ne pas highlight si c'est l'élément en cours de drag
+                if (!folderItem.classList.contains('dragging')) {
+                    folderItem.style.background = '#dbeafe';
+                    folderItem.style.borderLeft = '3px solid #3b82f6';
+                }
+            });
+            
+            folderItem.addEventListener('dragleave', (e) => {
+                e.stopPropagation();
+                folderItem.style.background = 'white';
+                folderItem.style.borderLeft = 'none';
+            });
+            
+            folderItem.addEventListener('drop', (e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                folderItem.style.background = 'white';
+                folderItem.style.borderLeft = 'none';
+                
+                const data = e.dataTransfer.getData('text/plain');
+                if (!data) return;
+                
+                const draggedItem = JSON.parse(data);
+                const targetPath = folderItem.getAttribute('data-path');
+                
+                console.log('Drop on folder:', {
+                    dragged: draggedItem,
+                    target: targetPath
+                });
+                
+                this.moveItemToFolder(viewerId, draggedItem, targetPath);
+            });
+        });
+        
+        // Événements de drop sur le fond du dossier (zone vide)
+        if (folderItemsContainer) {
+            folderItemsContainer.addEventListener('dragover', (e) => {
+                const isOverFolderItem = e.target.closest('.folder-item[data-is-folder="true"]');
+                
+                // Accepter le drop si on n'est pas directement sur un dossier
+                if (!isOverFolderItem) {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    e.dataTransfer.dropEffect = 'move';
+                    
+                    // Ajouter un indicateur visuel
+                    folderItemsContainer.style.background = '#eff6ff';
+                    folderItemsContainer.style.outline = '2px dashed #3b82f6';
+                }
+            });
+            
+            folderItemsContainer.addEventListener('dragleave', (e) => {
+                // Nettoyer uniquement si on quitte vraiment
+                if (!folderItemsContainer.contains(e.relatedTarget)) {
+                    folderItemsContainer.style.background = '';
+                    folderItemsContainer.style.outline = '';
+                }
+            });
+            
+            folderItemsContainer.addEventListener('drop', (e) => {
+                const isOverFolderItem = e.target.closest('.folder-item[data-is-folder="true"]');
+                
+                // Drop uniquement si on n'est pas sur un dossier spécifique
+                if (!isOverFolderItem) {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    
+                    folderItemsContainer.style.background = '';
+                    folderItemsContainer.style.outline = '';
+                    
+                    const data = e.dataTransfer.getData('text/plain');
+                    if (!data) return;
+                    
+                    const draggedItem = JSON.parse(data);
+                    
+                    console.log('Drop on folder background (folder-items):', {
+                        dragged: draggedItem,
+                        target: currentFolderPath
+                    });
+                    
+                    this.moveItemToFolder(viewerId, draggedItem, currentFolderPath);
+                }
+            });
+        }
+        
+        // Drop sur toute la fenêtre du viewer (backup)
+        const viewerContent = viewer.querySelector('.viewer-content');
+        if (viewerContent) {
+            viewerContent.addEventListener('dragover', (e) => {
+                const isOverFolderItem = e.target.closest('.folder-item[data-is-folder="true"]');
+                
+                if (!isOverFolderItem) {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    e.dataTransfer.dropEffect = 'move';
+                }
+            });
+            
+            viewerContent.addEventListener('drop', (e) => {
+                const isOverFolderItem = e.target.closest('.folder-item[data-is-folder="true"]');
+                
+                if (!isOverFolderItem) {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    
+                    const data = e.dataTransfer.getData('text/plain');
+                    if (!data) return;
+                    
+                    const draggedItem = JSON.parse(data);
+                    
+                    console.log('Drop on viewer content (backup):', {
+                        dragged: draggedItem,
+                        target: currentFolderPath
+                    });
+                    
+                    this.moveItemToFolder(viewerId, draggedItem, currentFolderPath);
+                }
+            });
+        }
+    },
+    
+    async moveItemToFolder(viewerId, item, targetFolderPath) {
+        // Vérifier qu'on ne déplace pas dans le même dossier
+        const itemParentPath = item.path.substring(0, item.path.lastIndexOf('/')) || '/';
+        
+        if (itemParentPath === targetFolderPath) {
+            if (typeof notifications !== 'undefined') {
+                notifications.show('ℹ️ Le fichier est déjà dans ce dossier', 'info');
+            }
+            return;
+        }
+        
+        // Vérifier qu'on ne déplace pas un dossier dans lui-même
+        if (item.isFolder && targetFolderPath.startsWith(item.path)) {
+            if (typeof notifications !== 'undefined') {
+                notifications.show('⚠️ Impossible de déplacer un dossier dans lui-même', 'warning');
+            }
+            return;
+        }
+        
+        if (typeof notifications !== 'undefined') {
+            notifications.show(`🔄 Déplacement de "${item.name}" vers "${targetFolderPath}"...`, 'info');
+        }
+        
+        try {
+            const response = await fetch(API_BASE + '/move', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    source_path: item.path,
+                    destination_folder: targetFolderPath
+                })
+            });
+            
+            const result = await response.json();
+            
+            if (response.ok) {
+                if (typeof notifications !== 'undefined') {
+                    notifications.show(`✅ "${item.name}" déplacé avec succès`, 'success');
+                }
+                
+                // Rafraîchir la fenêtre flottante
+                const windowData = this.activeWindows.find(w => w.id === viewerId);
+                if (windowData && windowData.folderPath) {
+                    this.loadFolderContent(viewerId, windowData.folderPath);
+                }
+                
+                // Rafraîchir aussi la vue principale si elle affiche ce dossier
+                if (typeof navigation !== 'undefined' && typeof state !== 'undefined') {
+                    if (state.currentPath === itemParentPath || state.currentPath === targetFolderPath) {
+                        navigation.navigateToFolder(state.currentPath);
+                    }
+                }
+                
+                // Rafraîchir les autres fenêtres flottantes si elles affichent les dossiers concernés
+                this.activeWindows.forEach(win => {
+                    if (win.type === 'folder' && win.id !== viewerId) {
+                        if (win.folderPath === itemParentPath || win.folderPath === targetFolderPath) {
+                            this.loadFolderContent(win.id, win.folderPath);
+                        }
+                    }
+                });
+                
+            } else {
+                throw new Error(result.error || 'Erreur lors du déplacement');
+            }
+            
+        } catch (error) {
+            console.error('Erreur de déplacement:', error);
+            if (typeof notifications !== 'undefined') {
+                notifications.show(`❌ Échec du déplacement: ${error.message}`, 'error');
+            }
+        }
     }
 };
 
