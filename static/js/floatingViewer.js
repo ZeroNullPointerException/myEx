@@ -1,14 +1,15 @@
 // ============================================
-// floatingViewer.js - Visualiseur flottant pour images et audio (Version améliorée avec Snap Windows)
+// floatingViewer.js - Visualiseur flottant pour images, audio et dossiers
 // ============================================
 
 const floatingViewer = {
     activeWindows: [],
     nextZIndex: 1000,
     isMobile: window.innerWidth <= 768,
+    linkedResizePair: null, // Pour suivre la paire de fenêtres en mode Split
     
     // ============================================
-    // 1. Fonctions de Création de Fenêtres (Non Modifiées)
+    // Fonctions de Création
     // ============================================
 
     createImageViewer(filename, imageUrl, asPopup = false) {
@@ -240,7 +241,6 @@ const floatingViewer = {
         return viewerId;
     },
     
-    // ... (Fonctions loadFolderContent, handleFileInViewer, getFileIconForViewer, formatSize, ...)
     async loadFolderContent(viewerId, folderPath) {
         const viewer = document.getElementById(viewerId);
         if (!viewer) return;
@@ -248,6 +248,7 @@ const floatingViewer = {
         const content = viewer.querySelector('.viewer-content');
         
         try {
+            // NOTE: API_BASE doit être défini ailleurs pour que cela fonctionne.
             const response = await fetch(`${API_BASE}/list?path=${encodeURIComponent(folderPath)}`);
             const data = await response.json();
             
@@ -383,6 +384,7 @@ const floatingViewer = {
             mimeType: mimeType
         });
         
+        // NOTE: fileActions doit être défini ailleurs pour que cela fonctionne.
         if (typeof fileActions !== 'undefined') {
             fileActions.handleFileClick(filename, cleanPath, mimeType, 0);
         }
@@ -429,7 +431,7 @@ const floatingViewer = {
     },
     
     // ============================================
-    // 2. Fonctions de Base (Draggable, Resizable, Snap)
+    // Logique de Drag & Drop (Tuilage/Magnetize)
     // ============================================
 
     makeDraggable(element) {
@@ -438,19 +440,15 @@ const floatingViewer = {
         let currentX, currentY, initialX, initialY;
         
         const startDrag = (clientX, clientY) => {
+            if (element.style.position !== 'fixed' && element.style.position !== 'absolute') {
+                element.style.position = 'fixed'; 
+            }
             isDragging = true;
             const rect = element.getBoundingClientRect();
             initialX = clientX - rect.left;
             initialY = clientY - rect.top;
             element.style.transition = 'none';
             this.bringToFront(element);
-
-            // Enregistrer la position initiale (utile si on "unsnap")
-            const window = this.activeWindows.find(w => w.element === element);
-            if (window && window.snappedState) {
-                window.initialDragPos = { left: rect.left, top: rect.top };
-                window.initialMousePos = { x: clientX, y: clientY };
-            }
         };
         
         const handleDrag = (clientX, clientY) => {
@@ -463,21 +461,6 @@ const floatingViewer = {
             element.style.top = currentY + 'px';
             element.style.right = 'auto';
             element.style.bottom = 'auto';
-
-            const window = this.activeWindows.find(w => w.element === element);
-            
-            // Logique d'annulation du snap si l'utilisateur tire la fenêtre du bord
-            if (window && window.snappedState) {
-                const distanceX = Math.abs(clientX - window.initialMousePos.x);
-                const distanceY = Math.abs(clientY - window.initialMousePos.y);
-                const unsnapThreshold = 30; // 30px de déplacement pour annuler le snap
-                
-                if (distanceX > unsnapThreshold || distanceY > unsnapThreshold) {
-                    this.unpairSnappedWindows(window);
-                    delete window.snappedState;
-                    delete window.savedPosition;
-                }
-            }
         };
         
         const endDrag = () => {
@@ -485,14 +468,22 @@ const floatingViewer = {
                 isDragging = false;
                 element.style.transition = 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)';
                 
-                const window = this.activeWindows.find(w => w.element === element);
-                if (window && window.magnetic) {
-                    this.snapToEdges(element);
-                }
+                const windowData = this.activeWindows.find(w => w.element === element);
+                const isSplitWindow = this.linkedResizePair && (this.linkedResizePair.idA === element.id || this.linkedResizePair.idB === element.id);
                 
-                if (window) {
-                    delete window.initialDragPos;
-                    delete window.initialMousePos;
+                // Si la fenêtre est en mode Split et qu'elle est déplacée, on quitte le mode Split.
+                if (isSplitWindow) {
+                    this.disableTiling(element.id);
+                    this.snapToDefaultPosition(element); 
+                    if (typeof notifications !== 'undefined') {
+                         notifications.show('🧲 Mode Split désactivé par déplacement', 'info');
+                    }
+                    return; 
+                }
+
+                // Application du Tuilage (Magnetize façon Windows)
+                if (windowData && windowData.magnetic) {
+                    this.applyTilingSnap(element);
                 }
             }
         };
@@ -526,16 +517,19 @@ const floatingViewer = {
         document.addEventListener('touchend', endDrag);
     },
     
+    // ============================================
+    // Logique de Redimensionnement (Split Mode)
+    // ============================================
+
     makeResizable(element) {
         const handle = element.querySelector('.resize-handle, .resize-handle-horizontal');
         if (!handle) return;
         
         const isImage = element.classList.contains('floating-image-viewer');
-        const isFolder = element.classList.contains('floating-folder-viewer');
         const isHorizontalOnly = handle.classList.contains('resize-handle-horizontal');
         
         let isResizing = false;
-        let startX, startY, startWidth, startHeight, startLeft, startTop;
+        let startX, startY, startWidth, startHeight, startLeft;
         
         const startResize = (clientX, clientY) => {
             isResizing = true;
@@ -545,16 +539,7 @@ const floatingViewer = {
             startWidth = rect.width;
             startHeight = rect.height;
             startLeft = rect.left;
-            startTop = rect.top;
             element.style.transition = 'none';
-
-            // Supprimer le snap state au début du redimensionnement
-            const windowData = this.activeWindows.find(w => w.element === element);
-            if (windowData) {
-                this.unpairSnappedWindows(windowData);
-                delete windowData.snappedState;
-                delete windowData.savedPosition;
-            }
         };
         
         const handleResize = (clientX, clientY) => {
@@ -563,58 +548,37 @@ const floatingViewer = {
             const deltaX = clientX - startX;
             const deltaY = clientY - startY;
             
-            let newWidth = Math.max(250, startWidth + deltaX);
-            let newHeight = startHeight;
+            const newWidth = Math.max(250, startWidth + deltaX);
             
-            const windowData = this.activeWindows.find(w => w.element === element);
-            const isHalfScreen = windowData && windowData.partnerId;
-            const margin = 1;
-            
-            // --- Logique de Redimensionnement Synchronisé pour 1/2 écran ---
-            if (isHalfScreen) {
-                const partnerWindow = this.activeWindows.find(w => w.id === windowData.partnerId);
-                if (partnerWindow) {
-                    const partnerElement = partnerWindow.element;
-                    const screenWidth = window.innerWidth;
+            // Logique de redimensionnement liée (SplitMode)
+            if (handle.dataset.isSplitter && this.linkedResizePair) {
+                const viewerB = document.getElementById(this.linkedResizePair.idB);
+                if (viewerB) {
+                    const totalWidth = window.innerWidth;
                     
-                    if (windowData.snappedState.includes('left_half') || windowData.snappedState.includes('top_left') || windowData.snappedState.includes('bottom_left')) {
-                        // Redimensionnement de la fenêtre de gauche (bord droit)
-                        newWidth = Math.max(250, startWidth + deltaX);
-                        
-                        // Ajuster la fenêtre de droite
-                        const newPartnerWidth = screenWidth - newWidth - margin * 3;
-                        partnerElement.style.width = newPartnerWidth + 'px';
-                        partnerElement.style.left = (startLeft + newWidth + margin * 2) + 'px';
-                        
-                        // Ajuster le contenu du partenaire (si viewer)
-                        this.updateContentHeight(partnerWindow);
-                        
-                    } else if (windowData.snappedState.includes('right_half') || windowData.snappedState.includes('top_right') || windowData.snappedState.includes('bottom_right')) {
-                        // Redimensionnement de la fenêtre de droite (bord gauche)
-                        newWidth = Math.max(250, startWidth - deltaX);
-                        const newX = startLeft + deltaX;
-                        
-                        // Ajuster la position de la fenêtre de droite
-                        element.style.left = newX + 'px';
-                        
-                        // Ajuster la fenêtre de gauche
-                        const newPartnerWidth = newX - margin * 2;
-                        partnerElement.style.width = newPartnerWidth + 'px';
-                        // La fenêtre de gauche conserve son "left" (margin)
-                        
-                        // Ajuster le contenu du partenaire (si viewer)
-                        this.updateContentHeight(partnerWindow);
-                    }
+                    // ClientX est la nouvelle largeur de A (ancrée à gauche)
+                    const newWidthA = Math.max(100, clientX); 
+                    const newWidthB = Math.max(100, totalWidth - clientX);
+
+                    // Vérification des minimums
+                    if (newWidthA < 100 || newWidthB < 100) return; 
+                    
+                    element.style.width = newWidthA + 'px';
+                    viewerB.style.width = newWidthB + 'px';
+                    viewerB.style.left = newWidthA + 'px';
+                    
+                    this.updateContentHeight(element);
+                    this.updateContentHeight(viewerB);
                 }
+                return;
             }
-            // --- Fin Logique de Redimensionnement Synchronisé ---
             
             element.style.width = newWidth + 'px';
             
-            if ((isImage || isFolder) && !isHorizontalOnly) {
-                newHeight = Math.max(250, startHeight + deltaY);
+            if (isImage && !isHorizontalOnly) {
+                const newHeight = Math.max(250, startHeight + deltaY);
                 element.style.height = newHeight + 'px';
-                this.updateContentHeight(windowData);
+                this.updateContentHeight(element);
             }
         };
         
@@ -654,167 +618,313 @@ const floatingViewer = {
         
         document.addEventListener('touchend', endResize);
     },
-    
-    // --- NOUVELLE LOGIQUE DE SNAP (Moitié/Quart d'écran) ---
-    snapToEdges(element) {
+
+    // ============================================
+    // Logique de Tuilage (Snap) et Split
+    // ============================================
+
+    applyTilingSnap(element) { 
         const rect = element.getBoundingClientRect();
-        const snapThreshold = 40; 
         const screenWidth = window.innerWidth;
         const screenHeight = window.innerHeight;
-        const windowData = this.activeWindows.find(w => w.element === element);
+        const margin = 10; // Marge de détection de l'aimantation (en px)
+
+        let snapMode = null; 
         
-        if (!windowData || !windowData.magnetic) return;
+        const nearTop = rect.top <= margin;
+        const nearBottom = rect.bottom >= screenHeight - margin;
+        const nearLeft = rect.left <= margin;
+        const nearRight = rect.right >= screenWidth - margin;
 
-        let snapAction = null;
-        let margin = 1; 
-        let newX, newY, newW, newH;
-
-        // Détection des coins (1/4 d'écran)
-        if (rect.left < snapThreshold && rect.top < snapThreshold) {
-            snapAction = 'top_left';
-        } else if (screenWidth - rect.right < snapThreshold && rect.top < snapThreshold) {
-            snapAction = 'top_right';
-        } else if (rect.left < snapThreshold && screenHeight - rect.bottom < snapThreshold) {
-            snapAction = 'bottom_left';
-        } else if (screenWidth - rect.right < snapThreshold && screenHeight - rect.bottom < snapThreshold) {
-            snapAction = 'bottom_right';
-        } 
-        // Détection des bords (1/2 écran)
-        else if (rect.left < snapThreshold) {
-            snapAction = 'left_half';
-        } else if (screenWidth - rect.right < snapThreshold) {
-            snapAction = 'right_half';
-        } else if (rect.top < snapThreshold) {
-             // Non implémenté : snap haut/bas complet (comportement non standard Windows)
-             // Vous pouvez l'ajouter si vous le souhaitez, mais la moitié est suffisante pour le 1/2 écran.
-             return;
-        } else if (screenHeight - rect.bottom < snapThreshold) {
-             return;
+        // 1. Détection des QUARTS d'écran (Corners: priorité sur le FullScreen)
+        if (nearTop && nearLeft) {
+            snapMode = 'quarter-tl'; // Coin Supérieur Gauche
+        } else if (nearTop && nearRight) {
+            snapMode = 'quarter-tr'; // Coin Supérieur Droit
+        } else if (nearBottom && nearLeft) {
+            snapMode = 'quarter-bl'; // Coin Inférieur Gauche
+        } else if (nearBottom && nearRight) {
+            snapMode = 'quarter-br'; // Coin Inférieur Droit
+        }
+        // 2. Détection du PLEIN ÉCRAN (Haut)
+        else if (nearTop) {
+            snapMode = 'full';
+        }
+        // 3. Détection des MOITIÉS d'écran (Côtés)
+        else if (nearLeft) {
+            snapMode = 'half-left';
+        }
+        else if (nearRight) {
+            snapMode = 'half-right';
         }
 
-        if (snapAction) {
-            const isQuarter = snapAction.includes('_left') || snapAction.includes('_right');
-            
-            // Calculer les dimensions
-            newW = isQuarter ? (screenWidth / 2 - margin * 1.5) : (screenWidth / 2 - margin * 1.5);
-            newH = isQuarter ? (screenHeight / 2 - margin * 1.5) : (screenHeight - margin * 2);
+        if (!snapMode) {
+             return; // Pas d'aimantation si la fenêtre n'est pas près d'une zone de dépôt
+        }
 
-            switch (snapAction) {
-                case 'left_half':
-                    newX = margin; newY = margin; break;
-                case 'right_half':
-                    newX = screenWidth - newW - margin; newY = margin; break;
-                case 'top_left':
-                    newX = margin; newY = margin; break;
-                case 'top_right':
-                    newX = screenWidth - newW - margin; newY = margin; break;
-                case 'bottom_left':
-                    newX = margin; newY = screenHeight - newH - margin; break;
-                case 'bottom_right':
-                    newX = screenWidth - newW - margin; newY = screenHeight - newH - margin; break;
-            }
+        const windowId = element.id;
 
-            // Sauvegarder la position et la taille avant le snap
-            if (!windowData.snappedState) {
-                const currentRect = element.getBoundingClientRect();
-                windowData.savedPosition = {
-                    left: element.style.left || currentRect.left + 'px',
-                    top: element.style.top || currentRect.top + 'px',
-                    width: element.style.width || currentRect.width + 'px',
-                    height: element.style.height || currentRect.height + 'px',
-                };
-            }
-            
-            // Appliquer la nouvelle position/taille
-            element.style.left = newX + 'px';
-            element.style.top = newY + 'px';
-            element.style.width = newW + 'px';
-            element.style.height = newH + 'px';
-            element.style.right = 'auto';
-            element.style.bottom = 'auto';
-            
-            windowData.snappedState = snapAction;
-            this.updateContentHeight(windowData);
+        // Récupérer les fenêtres voisines pour le mode Split
+        const neighboringWindow = this.findNeighboringWindow(snapMode, element.id);
+        
+        // Appliquer la nouvelle position
+        element.style.transition = 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)'; 
+        element.style.right = 'auto';
+        element.style.bottom = 'auto';
 
-            // Animation
-            element.style.transition = 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)';
-            element.style.transform = 'scale(1.01)';
-            setTimeout(() => {
-                element.style.transform = 'scale(1)';
-                element.style.transition = 'none';
-            }, 300);
+        switch(snapMode) {
+            case 'full':
+                element.style.left = '0';
+                element.style.top = '0';
+                element.style.width = '100vw';
+                element.style.height = '100vh';
+                element.style.borderRadius = '0';
+                // Assurer qu'on quitte le mode Split
+                if (this.linkedResizePair) {
+                    this.disableTiling(windowId);
+                }
+                break;
+            case 'half-left':
+                element.style.left = '0';
+                element.style.top = '0';
+                element.style.width = '50vw';
+                element.style.height = '100vh';
+                element.style.borderRadius = '0'; 
+                
+                if (neighboringWindow && neighboringWindow.snapMode === 'half-right') {
+                    this.enableSplitMode(windowId, neighboringWindow.id); // L'actuelle est A (gauche)
+                } else if (this.linkedResizePair) {
+                    this.disableTiling(windowId);
+                }
+                break;
+            case 'half-right':
+                element.style.left = '50vw';
+                element.style.top = '0';
+                element.style.width = '50vw';
+                element.style.height = '100vh';
+                element.style.borderRadius = '0';
+                
+                if (neighboringWindow && neighboringWindow.snapMode === 'half-left') {
+                    this.enableSplitMode(neighboringWindow.id, windowId); // La voisine est A (gauche)
+                } else if (this.linkedResizePair) {
+                    this.disableTiling(windowId);
+                }
+                break;
+            case 'quarter-tl': // Coin Supérieur Gauche
+                element.style.left = '0';
+                element.style.top = '0';
+                element.style.width = '50vw';
+                element.style.height = '50vh';
+                element.style.borderRadius = '0';
+                if (this.linkedResizePair) {
+                    this.disableTiling(windowId);
+                }
+                break;
+            case 'quarter-tr': // Coin Supérieur Droit
+                element.style.left = '50vw';
+                element.style.top = '0';
+                element.style.width = '50vw';
+                element.style.height = '50vh';
+                element.style.borderRadius = '0';
+                if (this.linkedResizePair) {
+                    this.disableTiling(windowId);
+                }
+                break;
+            case 'quarter-bl': // Coin Inférieur Gauche
+                element.style.left = '0';
+                element.style.top = '50vh';
+                element.style.width = '50vw';
+                element.style.height = '50vh';
+                element.style.borderRadius = '0';
+                if (this.linkedResizePair) {
+                    this.disableTiling(windowId);
+                }
+                break;
+            case 'quarter-br': // Coin Inférieur Droit
+                element.style.left = '50vw';
+                element.style.top = '50vh';
+                element.style.width = '50vw';
+                element.style.height = '50vh';
+                element.style.borderRadius = '0';
+                if (this.linkedResizePair) {
+                    this.disableTiling(windowId);
+                }
+                break;
+        }
 
-            if (typeof notifications !== 'undefined') {
-                notifications.show(`🪟 Collé en ${snapAction.replace('_', ' ')}`, 'success');
-            }
+        this.updateContentHeight(element);
 
-            // Logique de jumelage (Pairing)
-            this.pairSnappedWindows(windowData);
-
-        } else if (windowData.snappedState) {
-             // Si on n'est pas en zone de snap mais qu'on était snappé, on considère un "unsnap"
-             this.unpairSnappedWindows(windowData);
-             delete windowData.snappedState;
-             // On ne restaure pas la taille ici, l'utilisateur gère le déplacement
+        element.style.transform = 'scale(1.02)';
+        setTimeout(() => {
+            element.style.transform = 'scale(1)';
+        }, 200);
+        
+        if (typeof notifications !== 'undefined') {
+            notifications.show('🧲 Tuilage ' + snapMode.replace('-', ' ') + ' appliqué', 'success');
         }
     },
 
-    // --- NOUVELLE FONCTION DE JUMELAGE ---
-    pairSnappedWindows(windowData) {
-        // Définir les partenaires pour le redimensionnement synchronisé
-        // Les paires principales sont: left_half/right_half, top_left/top_right, bottom_left/bottom_right
-        const opposites = {
-            'left_half': 'right_half',
-            'right_half': 'left_half',
-            'top_left': 'top_right', // Jumelage horizontal pour 1/4
-            'top_right': 'top_left',
-            'bottom_left': 'bottom_right',
-            'bottom_right': 'bottom_left',
+    findNeighboringWindow(targetSnapMode, currentId) { 
+        // Vérifie si une autre fenêtre est déjà ancrée dans la position opposée (pour Split 2/2)
+        
+        let neighbor = null;
+        let expectedSnapMode = null;
+        
+        if (targetSnapMode === 'half-left') {
+            expectedSnapMode = 'half-right';
+        } else if (targetSnapMode === 'half-right') {
+            expectedSnapMode = 'half-left';
+        } else {
+            return null; 
+        }
+        
+        this.activeWindows.forEach(windowData => {
+            const element = windowData.element;
+            const rect = element.getBoundingClientRect();
+            const screenWidth = window.innerWidth;
+            const margin = 5; 
+
+            // Ignorer la fenêtre actuelle et celles déjà en mode Split
+            if (element.id === currentId || this.linkedResizePair?.idA === element.id || this.linkedResizePair?.idB === element.id) {
+                return;
+            }
+            
+            // Vérifie si la fenêtre est ancrée en "half-left"
+            const isHalfLeft = rect.left <= margin && rect.width > screenWidth / 2 - margin && rect.width < screenWidth / 2 + margin;
+            // Vérifie si la fenêtre est ancrée en "half-right"
+            const isHalfRight = rect.right >= screenWidth - margin && rect.width > screenWidth / 2 - margin && rect.width < screenWidth / 2 + margin && rect.left > screenWidth / 2 - margin;
+
+
+            if (expectedSnapMode === 'half-left' && isHalfLeft) {
+                neighbor = { id: windowData.id, snapMode: 'half-left' };
+            } 
+            else if (expectedSnapMode === 'half-right' && isHalfRight) {
+                neighbor = { id: windowData.id, snapMode: 'half-right' };
+            }
+        });
+        
+        return neighbor;
+    },
+
+    snapToDefaultPosition(element) { // Rétablit une fenêtre en mode flottant normal
+        const rect = element.getBoundingClientRect();
+        
+        // Calculer une position de réintégration intelligente
+        const newLeft = Math.max(10, Math.min(rect.left, window.innerWidth - rect.width - 10));
+        const newTop = Math.max(10, Math.min(rect.top, window.innerHeight - rect.height - 10));
+
+        element.style.left = newLeft + 'px';
+        element.style.top = newTop + 'px';
+        element.style.right = 'auto';
+        element.style.bottom = 'auto';
+        
+        // Rétablir une taille par défaut si elle était plein écran/moitié d'écran
+        if (element.style.width === '100vw' || element.style.width === '50vw') {
+             element.style.width = '400px'; 
+             element.style.height = '500px';
+        }
+       
+        element.style.borderRadius = '12px';
+        this.updateContentHeight(element);
+
+        // Rétablir les boutons cachés en mode Split
+        const headerBtns = element.querySelectorAll('.viewer-header button');
+        headerBtns.forEach(btn => btn.style.display = 'block');
+        
+        // Rétablir la poignée de redimensionnement
+        const handle = element.querySelector('.resize-handle, .resize-handle-horizontal');
+        if (handle) {
+            delete handle.dataset.isSplitter;
+            handle.style.display = 'block';
+            handle.classList.remove('split-mode-handle');
+        }
+    },
+    
+    disableTiling(viewerIdToKeep) { // Désactive le mode Split et rétablit la fenêtre restante
+        if (!this.linkedResizePair) return;
+
+        const idA = this.linkedResizePair.idA;
+        const idB = this.linkedResizePair.idB;
+
+        const otherId = (idA === viewerIdToKeep) ? idB : idA;
+        const otherWindow = document.getElementById(otherId);
+        
+        if (otherWindow) {
+            this.snapToDefaultPosition(otherWindow); 
+        }
+        
+        this.linkedResizePair = null;
+
+        if (typeof notifications !== 'undefined') {
+            notifications.show('🧲 Mode Split désactivé.', 'info');
+        }
+    },
+
+    enableSplitMode(viewerIdA, viewerIdB, axis = 'vertical') { 
+        this.linkedResizePair = {
+            idA: viewerIdA,
+            idB: viewerIdB,
+            axis: axis
         };
         
-        this.unpairSnappedWindows(windowData); // Nettoyer l'ancienne paire
+        const viewerA = document.getElementById(viewerIdA);
+        const viewerB = document.getElementById(viewerIdB);
+        
+        if (viewerA) {
+            viewerA.style.position = 'fixed';
+            viewerA.style.borderRadius = '0';
+            viewerA.style.left = '0';
+            viewerA.style.width = '50vw';
+            viewerA.style.height = '100vh';
+            viewerA.style.top = '0'; 
+            viewerA.style.right = 'auto';
+            viewerA.style.bottom = 'auto';
 
-        if (windowData.snappedState && opposites[windowData.snappedState]) {
-            const oppositeState = opposites[windowData.snappedState];
-            const partner = this.activeWindows.find(w => 
-                w.id !== windowData.id && w.snappedState === oppositeState
-            );
-
-            if (partner) {
-                // Créer une relation de paire bidirectionnelle
-                windowData.partnerId = partner.id;
-                partner.partnerId = windowData.id;
-                console.log(`Windows paired: ${windowData.id} <-> ${partner.id}`);
+            const headerBtns = viewerA.querySelectorAll('.viewer-header button');
+            headerBtns.forEach(btn => btn.style.display = 'none');
+            
+            this.updateContentHeight(viewerA);
+            
+            const handleA = viewerA.querySelector('.resize-handle, .resize-handle-horizontal');
+            if (handleA) {
+                handleA.dataset.isSplitter = 'true'; 
+                handleA.style.display = 'block'; 
+                handleA.classList.add('split-mode-handle'); 
             }
+        }
+        
+        if (viewerB) {
+            viewerB.style.position = 'fixed';
+            viewerB.style.borderRadius = '0';
+            viewerB.style.left = '50vw';
+            viewerB.style.width = '50vw';
+            viewerB.style.height = '100vh';
+            viewerB.style.top = '0'; 
+            viewerB.style.right = 'auto';
+            viewerB.style.bottom = 'auto';
+            
+            const headerBtns = viewerB.querySelectorAll('.viewer-header button');
+            headerBtns.forEach(btn => btn.style.display = 'none');
+            
+            this.updateContentHeight(viewerB);
+            
+            const handleB = viewerB.querySelector('.resize-handle, .resize-handle-horizontal');
+            if (handleB) {
+                handleB.style.display = 'none'; 
+                handleB.classList.remove('split-mode-handle');
+                delete handleB.dataset.isSplitter;
+            }
+        }
+        
+        if (typeof notifications !== 'undefined') {
+            notifications.show('🔗 Mode Split activé entre ' + viewerIdA + ' et ' + viewerIdB, 'success');
         }
     },
 
-    // --- NOUVELLE FONCTION DE DÉJUMELAGE ---
-    unpairSnappedWindows(windowData) {
-        if (windowData.partnerId) {
-            const partner = this.activeWindows.find(w => w.id === windowData.partnerId);
-            if (partner) {
-                delete partner.partnerId;
-                console.log(`Windows unpaired: ${windowData.id} -> ${partner.id}`);
-            }
-            delete windowData.partnerId;
-        }
-    },
-
-    // --- NOUVELLE FONCTION UTILITAIRE ---
-    updateContentHeight(windowData) {
-        if (windowData && (windowData.type === 'image' || windowData.type === 'folder')) {
-            const element = windowData.element;
-            const content = element.querySelector('.viewer-content');
-            const height = element.style.height.replace('px', '');
-            if (content && height) {
-                // 110px représente la hauteur combinée du header et du footer/handle de redimensionnement
-                content.style.height = `calc(${height}px - 110px)`; 
-            }
-        }
-    },
-
-    // ... (Reste des fonctions - bringToFront, cascadeWindow, minimizeWindow, closeWindow, ...)
+    // ============================================
+    // Fonctions de Gestion de Fenêtre (Modifications mineures)
+    // ============================================
+    
     makeClickToFront(element) {
         element.addEventListener('mousedown', () => {
             this.bringToFront(element);
@@ -852,7 +962,7 @@ const floatingViewer = {
         const icon = minimizeBtn ? minimizeBtn.querySelector('i') : null;
         
         if (window.minimized) {
-            if (content) content.style.display = window.type === 'image' || window.type === 'folder' ? 'block' : 'block'; // Block/Flex ajusté
+            if (content) content.style.display = window.type === 'image' ? 'flex' : 'block';
             if (footer) footer.style.display = 'flex';
             if (resizeHandle) resizeHandle.style.display = 'block';
             
@@ -861,7 +971,7 @@ const floatingViewer = {
                 element.style.height = window.savedDimensions.height;
                 element.style.minHeight = window.savedDimensions.minHeight || 'auto';
                 
-                if ((window.type === 'image' || window.type === 'folder') && content) {
+                if (window.type === 'image' && content) {
                     content.style.height = window.savedDimensions.contentHeight;
                 }
             } else {
@@ -924,14 +1034,18 @@ const floatingViewer = {
             }
         }
         
-        this.unpairSnappedWindows(window); // Nettoyer la paire
-        
         window.element.style.transform = 'scale(0.8)';
         window.element.style.opacity = '0';
         
         setTimeout(() => {
             window.element.remove();
             this.activeWindows.splice(index, 1);
+
+            // Gérer la désactivation du mode Split si la fenêtre fermée en faisait partie
+            if (this.linkedResizePair && (this.linkedResizePair.idA === viewerId || this.linkedResizePair.idB === viewerId)) {
+                const idToKeep = (this.linkedResizePair.idA === viewerId) ? this.linkedResizePair.idB : this.linkedResizePair.idA;
+                this.disableTiling(idToKeep); 
+            }
         }, 200);
     },
     
@@ -980,6 +1094,7 @@ const floatingViewer = {
             if (statusSpan) statusSpan.textContent = 'OFF';
         }
         
+        // NOTE: notifications doit être défini ailleurs pour que cela fonctionne.
         if (typeof notifications !== 'undefined') {
             notifications.show(
                 window.magnetic ? '🧲 Aimantation activée' : 'Aimantation désactivée', 
@@ -1004,23 +1119,18 @@ const floatingViewer = {
             element.style.height = window.savedPosition.height;
             element.style.borderRadius = '12px';
             
-            if (window.type === 'image' || window.type === 'folder') {
-                const content = element.querySelector('.viewer-content');
-                content.style.height = window.savedPosition.contentHeight;
-            }
+            this.updateContentHeight(element);
             
             icon.classList.remove('fa-compress');
             icon.classList.add('fa-expand');
             fullscreenBtn.title = 'Plein écran';
             window.fullscreen = false;
         } else {
-            const rect = element.getBoundingClientRect();
             window.savedPosition = {
-                left: element.style.left || rect.left + 'px',
-                top: element.style.top || rect.top + 'px',
-                width: element.style.width || rect.width + 'px',
-                height: element.style.height || rect.height + 'px',
-                contentHeight: element.querySelector('.viewer-content') ? element.querySelector('.viewer-content').style.height : 'auto'
+                left: element.style.left,
+                top: element.style.top,
+                width: element.style.width,
+                height: element.style.height
             };
             
             element.style.left = '0';
@@ -1031,10 +1141,7 @@ const floatingViewer = {
             element.style.right = 'auto';
             element.style.bottom = 'auto';
             
-            if (window.type === 'image' || window.type === 'folder') {
-                const content = element.querySelector('.viewer-content');
-                content.style.height = 'calc(100vh - 110px)';
-            }
+            this.updateContentHeight(element);
             
             icon.classList.remove('fa-expand');
             icon.classList.add('fa-compress');
@@ -1049,8 +1156,26 @@ const floatingViewer = {
         const downloadUrl = url.replace('/view', '/download');
         window.open(downloadUrl, '_blank');
         
+        // NOTE: notifications doit être défini ailleurs pour que cela fonctionne.
         if (typeof notifications !== 'undefined') {
             notifications.show('📥 Téléchargement de ' + filename + ' initié', 'info');
+        }
+    },
+    
+    updateContentHeight(element) { 
+        const content = element.querySelector('.viewer-content');
+        if (content) {
+            const header = element.querySelector('.viewer-header');
+            const footer = element.querySelector('.viewer-footer');
+            
+            const headerHeight = header ? header.offsetHeight : 0;
+            const footerHeight = footer ? footer.offsetHeight : 0;
+            
+            const rect = element.getBoundingClientRect();
+            // On soustrait les hauteurs du header, du footer et un peu de marge/padding
+            const newContentHeight = rect.height - headerHeight - footerHeight - 10; 
+            
+            content.style.height = Math.max(50, newContentHeight) + 'px';
         }
     },
     
@@ -1065,29 +1190,59 @@ const floatingViewer = {
         
         this.activeWindows.forEach(win => {
             const element = win.element;
-            const rect = element.getBoundingClientRect();
             
-            if (win.snappedState) {
-                // Si snappé, recalculer la position/taille
-                this.snapToEdges(element);
+            // Réajustement des fenêtres en mode Split
+            if (this.linkedResizePair) {
+                const viewerA = document.getElementById(this.linkedResizePair.idA);
+                const viewerB = document.getElementById(this.linkedResizePair.idB);
+                
+                if (viewerA && viewerB) {
+                    const totalWidth = window.innerWidth;
+                    
+                    // Assure que les fenêtres occupent 100% de la hauteur
+                    viewerA.style.height = '100vh'; 
+                    viewerB.style.height = '100vh'; 
+                    
+                    // Rétablir un ratio par défaut (50/50) si le redimensionnement change trop
+                    const currentWidthA = parseFloat(viewerA.style.width);
+                    const ratio = currentWidthA / (window.innerWidth / 100) / 100; // Ratio basé sur la largeur de l'écran
+                    
+                    let newWidthA = totalWidth / 2; // Par défaut 50/50
+                    
+                    if (!isNaN(currentWidthA) && currentWidthA > 100 && currentWidthA < totalWidth - 100) {
+                        newWidthA = totalWidth * ratio;
+                    }
+                    
+                    const newWidthB = totalWidth - newWidthA;
+
+                    viewerA.style.width = newWidthA + 'px';
+                    viewerB.style.width = newWidthB + 'px';
+                    viewerB.style.left = newWidthA + 'px';
+                    
+                    this.updateContentHeight(viewerA);
+                    this.updateContentHeight(viewerB);
+                }
             } else {
-                // Sinon, ajuster les débordements
+                // Ajustement des fenêtres flottantes normales (comme avant)
+                const rect = element.getBoundingClientRect();
+
                 if (rect.right > window.innerWidth) {
                     element.style.left = Math.max(10, window.innerWidth - rect.width - 10) + 'px';
                 }
                 if (rect.bottom > window.innerHeight) {
                     element.style.top = Math.max(10, window.innerHeight - rect.height - 10) + 'px';
                 }
+                
+                if (this.isMobile) {
+                    element.style.width = (window.innerWidth - 20) + 'px';
+                    element.style.left = '10px';
+                    element.style.right = '10px';
+                }
             }
-            
-            if (this.isMobile) {
-                element.style.width = (window.innerWidth - 20) + 'px';
-                element.style.left = '10px';
-                element.style.right = '10px';
-            }
+            this.updateContentHeight(win.element);
         });
     },
-    
+
     createPopupWindow(filename, url, type) {
         const width = type === 'image' ? 800 : 400;
         const height = type === 'image' ? 600 : 200;
@@ -1100,6 +1255,7 @@ const floatingViewer = {
         const popup = window.open('', 'viewer_' + Date.now(), features);
         
         if (!popup) {
+            // NOTE: notifications doit être défini ailleurs pour que cela fonctionne.
             if (typeof notifications !== 'undefined') {
                 notifications.show('⚠️ Les popups sont bloquées. Autorisez-les pour ce site.', 'warning');
             }
@@ -1135,6 +1291,7 @@ const floatingViewer = {
         
         popup.document.close();
         
+        // NOTE: notifications doit être défini ailleurs pour que cela fonctionne.
         if (typeof notifications !== 'undefined') {
             notifications.show('🪟 ' + filename + ' ouvert dans une nouvelle fenêtre', 'success');
         }
@@ -1159,17 +1316,20 @@ const floatingViewer = {
         
         const features = 'width=' + width + ',height=' + height + ',left=' + left + ',top=' + top + ',resizable=yes,scrollbars=yes,status=no,toolbar=no,menubar=no,location=no';
         
+        // NOTE: Ceci dépend de la structure de l'application hôte
         const folderUrl = window.location.origin + window.location.pathname + '?path=' + encodeURIComponent(folderPath);
         
         const popup = window.open(folderUrl, 'folder_' + Date.now(), features);
         
         if (!popup) {
+            // NOTE: notifications doit être défini ailleurs pour que cela fonctionne.
             if (typeof notifications !== 'undefined') {
                 notifications.show('⚠️ Les popups sont bloquées. Autorisez-les pour ce site.', 'warning');
             }
             return null;
         }
         
+        // NOTE: notifications doit être défini ailleurs pour que cela fonctionne.
         if (typeof notifications !== 'undefined') {
             notifications.show('🪟 Dossier "' + folderName + '" ouvert dans une nouvelle fenêtre', 'success');
         }
@@ -1178,6 +1338,7 @@ const floatingViewer = {
     },
     
     attachDragAndDropEvents(viewerId, currentFolderPath) {
+        // ... (Logique de Drag & Drop pour les dossiers, inchangée)
         const viewer = document.getElementById(viewerId);
         if (!viewer) return;
         
@@ -1296,7 +1457,7 @@ const floatingViewer = {
                     
                     const draggedItem = JSON.parse(data);
                     
-                    console.log('Drop on folder background (folder-items):', {
+                    console.log('Drop on viewer content (folder-items):', {
                         dragged: draggedItem,
                         target: currentFolderPath
                     });
@@ -1343,6 +1504,7 @@ const floatingViewer = {
     },
     
     async moveItemToFolder(viewerId, item, targetFolderPath) {
+        // ... (Logique de Move Item To Folder, inchangée)
         // Vérifier qu'on ne déplace pas dans le même dossier
         const itemParentPath = item.path.substring(0, item.path.lastIndexOf('/')) || '/';
         
@@ -1366,6 +1528,7 @@ const floatingViewer = {
         }
         
         try {
+            // NOTE: API_BASE doit être défini ailleurs pour que cela fonctionne.
             const response = await fetch(API_BASE + '/move', {
                 method: 'POST',
                 headers: {
@@ -1391,6 +1554,7 @@ const floatingViewer = {
                 }
                 
                 // Rafraîchir aussi la vue principale si elle affiche ce dossier
+                // NOTE: navigation et state doivent être définis ailleurs pour que cela fonctionne.
                 if (typeof navigation !== 'undefined' && typeof state !== 'undefined') {
                     if (state.currentPath === itemParentPath || state.currentPath === targetFolderPath) {
                         navigation.navigateToFolder(state.currentPath);
