@@ -41,6 +41,10 @@ const contextMenu = {
     },
 
     generateHtml(file) {
+        // Échapper les guillemets dans les noms et chemins
+        const safeName = file.name.replace(/'/g, "\\'");
+        const safePath = file.path.replace(/'/g, "\\'");
+        
         let html = `
             <div class="px-3 py-2 border-b border-slate-100 text-sm font-semibold text-slate-800 truncate">
                 ${file.name}
@@ -54,7 +58,7 @@ const contextMenu = {
         if (typeof state !== 'undefined' && state.isSearchMode) { 
             parentButtonHtml = `
                 <div class="border-t border-slate-100 my-1"></div>
-                <button onclick="contextMenu.hide(); navigation.navigateToFolder(utils.getParentPath('${file.path}'))" 
+                <button onclick="contextMenu.hide(); navigation.navigateToFolder(utils.getParentPath('${safePath}'))" 
                         class="flex items-center w-full px-3 py-2 text-sm text-slate-700 hover:bg-blue-50 transition duration-150">
                     <i class="fas fa-level-up-alt mr-2 w-4"></i> Aller au dossier parent
                 </button>
@@ -64,52 +68,55 @@ const contextMenu = {
         
         if (file.isFolder) {
             html += `
-                <button onclick="navigation.navigateToFolder('/${file.path}')" class="flex items-center w-full px-3 py-2 text-sm text-slate-700 hover:bg-blue-50 transition duration-150">
+                <button onclick="navigation.navigateToFolder('/${safePath}')" class="flex items-center w-full px-3 py-2 text-sm text-slate-700 hover:bg-blue-50 transition duration-150">
                     <i class="fas fa-folder-open mr-2 w-4"></i> Ouvrir
                 </button>
-                <button onclick="fileActions.downloadFolder('${file.path}')" class="flex items-center w-full px-3 py-2 text-sm text-slate-700 hover:bg-blue-50 transition duration-150">
+                <button onclick="contextMenu.hide(); floatingViewer.createFolderViewer('${safeName}', '${safePath}')" class="flex items-center w-full px-3 py-2 text-sm text-slate-700 hover:bg-blue-50 transition duration-150">
+                    <i class="fas fa-window-restore mr-2 w-4"></i> Ouvrir dans une fenêtre flottante
+                </button>
+                <button onclick="fileActions.downloadFolder('${safePath}')" class="flex items-center w-full px-3 py-2 text-sm text-slate-700 hover:bg-blue-50 transition duration-150">
                     <i class="fas fa-file-archive mr-2 w-4"></i> Télécharger (ZIP)
                 </button>
-                <button onclick="folderActions.openRenameModal('${file.name}', '${file.path}', true)" class="flex items-center w-full px-3 py-2 text-sm text-slate-700 hover:bg-blue-50 transition duration-150">
+                <button onclick="folderActions.openRenameModal('${safeName}', '${safePath}', true)" class="flex items-center w-full px-3 py-2 text-sm text-slate-700 hover:bg-blue-50 transition duration-150">
                     <i class="fas fa-edit mr-2 w-4"></i> Renommer
                 </button>
-                <button onclick="moveActions.openMoveModal('${file.name}', '${file.path}', true)" class="flex items-center w-full px-3 py-2 text-sm text-slate-700 hover:bg-blue-50 transition duration-150">
+                <button onclick="moveActions.openMoveModal('${safeName}', '${safePath}', true)" class="flex items-center w-full px-3 py-2 text-sm text-slate-700 hover:bg-blue-50 transition duration-150">
                     <i class="fas fa-arrows-alt mr-2 w-4"></i> Déplacer
                 </button>
                 
                 ${parentButtonHtml}
                 
                 <div class="border-t border-slate-100 my-1"></div>
-                <button onclick="fileActions.confirmDelete('${file.name}', '${file.path}')" class="flex items-center w-full px-3 py-2 text-sm text-red-600 hover:bg-red-50 transition duration-150">
+                <button onclick="fileActions.confirmDelete('${safeName}', '${safePath}')" class="flex items-center w-full px-3 py-2 text-sm text-red-600 hover:bg-red-50 transition duration-150">
                     <i class="fas fa-trash-alt mr-2 w-4"></i> Supprimer le dossier
                 </button>
             `;
         } else {
             const canView = fileActions.canViewFile(file.mimeType, file.name);
             html += `
-                <button onclick="fileActions.handleFileClick('${file.name}', '${file.path}', '${file.mimeType}', ${file.size})" class="flex items-center w-full px-3 py-2 text-sm text-slate-700 hover:bg-blue-50 transition duration-150">
+                <button onclick="fileActions.handleFileClick('${safeName}', '${safePath}', '${file.mimeType}', ${file.size})" class="flex items-center w-full px-3 py-2 text-sm text-slate-700 hover:bg-blue-50 transition duration-150">
                     <i class="fas ${canView ? 'fa-eye' : 'fa-download'} mr-2 w-4"></i> ${canView ? 'Visualiser' : 'Télécharger'}
                 </button>
             `;
             if (canView) {
                 html += `
-                    <button onclick="fileActions.downloadFile('${file.path}')" class="flex items-center w-full px-3 py-2 text-sm text-slate-700 hover:bg-blue-50 transition duration-150">
+                    <button onclick="fileActions.downloadFile('${safePath}')" class="flex items-center w-full px-3 py-2 text-sm text-slate-700 hover:bg-blue-50 transition duration-150">
                         <i class="fas fa-download mr-2 w-4"></i> Télécharger
                     </button>
                 `;
             }
             html += `
-                <button onclick="folderActions.openRenameModal('${file.name}', '${file.path}', false)" class="flex items-center w-full px-3 py-2 text-sm text-slate-700 hover:bg-blue-50 transition duration-150">
+                <button onclick="folderActions.openRenameModal('${safeName}', '${safePath}', false)" class="flex items-center w-full px-3 py-2 text-sm text-slate-700 hover:bg-blue-50 transition duration-150">
                     <i class="fas fa-edit mr-2 w-4"></i> Renommer
                 </button>
-                <button onclick="moveActions.openMoveModal('${file.name}', '${file.path}', false)" class="flex items-center w-full px-3 py-2 text-sm text-slate-700 hover:bg-blue-50 transition duration-150">
+                <button onclick="moveActions.openMoveModal('${safeName}', '${safePath}', false)" class="flex items-center w-full px-3 py-2 text-sm text-slate-700 hover:bg-blue-50 transition duration-150">
                     <i class="fas fa-arrows-alt mr-2 w-4"></i> Déplacer
                 </button>
                 
                 ${parentButtonHtml}
                 
                 <div class="border-t border-slate-100 my-1"></div>
-                <button onclick="fileActions.confirmDelete('${file.name}', '${file.path}')" class="flex items-center w-full px-3 py-2 text-sm text-red-600 hover:bg-red-50 transition duration-150">
+                <button onclick="fileActions.confirmDelete('${safeName}', '${safePath}')" class="flex items-center w-full px-3 py-2 text-sm text-red-600 hover:bg-red-50 transition duration-150">
                     <i class="fas fa-trash-alt mr-2 w-4"></i> Supprimer le fichier
                 </button>
             `;
