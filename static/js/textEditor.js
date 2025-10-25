@@ -1,310 +1,376 @@
 // ============================================
-// textEditor.js - Éditeur de texte intégré
+// textEditor.js - Éditeur de texte flottant intégré
 // ============================================
 
 const textEditor = {
-    currentPath: null,
-    originalContent: null,
-    isModified: false,
-    editor: null,
+    activeEditors: [],
 
-    open(path, filename) {
-        this.currentPath = path;
-        this.isModified = false;
+    open(filename, filePath) {
+        const editorId = 'editor-' + Date.now();
+        const isMobile = window.innerWidth <= 768;
         
-        // Créer l'overlay de l'éditeur
-        const editorHTML = `
-            <div id="text-editor-overlay" class="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm animate-fadeIn">
-                <div class="bg-white rounded-2xl shadow-2xl w-[95vw] h-[90vh] max-w-6xl flex flex-col overflow-hidden animate-slideUp">
-                    
-                    <!-- Header -->
-                    <div class="flex items-center justify-between px-6 py-4 bg-gradient-to-r from-slate-50 to-slate-100 border-b border-slate-200">
-                        <div class="flex items-center gap-3">
-                            <div class="w-10 h-10 rounded-xl bg-blue-500 flex items-center justify-center">
-                                <i class="fas fa-file-code text-white text-lg"></i>
-                            </div>
-                            <div>
-                                <h2 class="text-lg font-semibold text-slate-800 truncate max-w-md" title="${filename}">${filename}</h2>
-                                <p class="text-xs text-slate-500">${path}</p>
-                            </div>
-                        </div>
-                        
-                        <div class="flex items-center gap-2">
-                            <span id="editor-status" class="text-sm text-slate-500 mr-2">Chargement...</span>
-                            <button onclick="textEditor.save()" id="save-btn" disabled
-                                    class="px-5 py-2.5 bg-blue-600 text-white rounded-xl font-medium hover:bg-blue-700 transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2 shadow-sm hover:shadow-md">
-                                <i class="fas fa-save"></i>
-                                <span>Enregistrer</span>
-                            </button>
-                            <button onclick="textEditor.close()" 
-                                    class="w-10 h-10 rounded-xl hover:bg-slate-200 transition-colors duration-200 flex items-center justify-center text-slate-600">
-                                <i class="fas fa-times text-xl"></i>
-                            </button>
-                        </div>
-                    </div>
-                    
-                    <!-- Barre d'outils -->
-                    <div class="flex items-center gap-2 px-6 py-3 bg-slate-50 border-b border-slate-200">
-                        <button onclick="textEditor.undo()" title="Annuler (Ctrl+Z)"
-                                class="w-9 h-9 rounded-lg hover:bg-slate-200 transition-colors flex items-center justify-center text-slate-600">
-                            <i class="fas fa-undo"></i>
-                        </button>
-                        <button onclick="textEditor.redo()" title="Rétablir (Ctrl+Y)"
-                                class="w-9 h-9 rounded-lg hover:bg-slate-200 transition-colors flex items-center justify-center text-slate-600">
-                            <i class="fas fa-redo"></i>
-                        </button>
-                        <div class="w-px h-6 bg-slate-300 mx-2"></div>
-                        <button onclick="textEditor.find()" title="Rechercher (Ctrl+F)"
-                                class="w-9 h-9 rounded-lg hover:bg-slate-200 transition-colors flex items-center justify-center text-slate-600">
-                            <i class="fas fa-search"></i>
-                        </button>
-                        <div class="w-px h-6 bg-slate-300 mx-2"></div>
-                        <select id="editor-font-size" onchange="textEditor.changeFontSize(this.value)" 
-                                class="px-3 py-1.5 rounded-lg border border-slate-300 bg-white text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
-                            <option value="12">12px</option>
-                            <option value="14" selected>14px</option>
-                            <option value="16">16px</option>
-                            <option value="18">18px</option>
-                            <option value="20">20px</option>
-                        </select>
-                        <div class="flex-1"></div>
-                        <div id="editor-info" class="text-sm text-slate-500"></div>
-                    </div>
-                    
-                    <!-- Zone d'édition -->
-                    <div class="flex-1 relative overflow-hidden">
-                        <textarea id="text-editor-content" 
-                                  class="absolute inset-0 w-full h-full px-6 py-4 font-mono text-sm leading-relaxed resize-none focus:outline-none bg-white text-slate-800"
-                                  spellcheck="false"
-                                  placeholder="Chargement du contenu..."></textarea>
-                    </div>
-                    
-                    <!-- Footer -->
-                    <div class="flex items-center justify-between px-6 py-3 bg-slate-50 border-t border-slate-200 text-xs text-slate-500">
-                        <div class="flex items-center gap-4">
-                            <span id="editor-lines">Lignes: 0</span>
-                            <span id="editor-chars">Caractères: 0</span>
-                            <span id="editor-cursor">Ligne 1, Col 1</span>
-                        </div>
-                        <div class="flex items-center gap-2">
-                            <i class="fas fa-keyboard text-slate-400"></i>
-                            <span>Ctrl+S pour sauvegarder</span>
-                        </div>
-                    </div>
+        const editor = document.createElement('div');
+        editor.id = editorId;
+        editor.className = 'floating-viewer floating-text-editor';
+        
+        const initialWidth = isMobile ? (window.innerWidth - 20) : 800;
+        const initialHeight = isMobile ? (window.innerHeight * 0.8) : 600;
+        
+        editor.style.top = isMobile ? '10px' : '50px';
+        editor.style.left = isMobile ? '10px' : '50px';
+        editor.style.width = initialWidth + 'px';
+        editor.style.height = initialHeight + 'px';
+        editor.style.zIndex = floatingViewer.nextZIndex++;
+        editor.style.position = 'fixed';
+        
+        editor.innerHTML = `
+            <div class="viewer-header viewer-header-editor" style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);">
+                <div class="flex items-center gap-2 flex-1 min-w-0">
+                    <i class="fas fa-file-code"></i>
+                    <span title="${filename}">${filename}</span>
+                </div>
+                <div class="flex gap-2">
+                    <button onclick="event.stopPropagation(); textEditor.save('${editorId}')" 
+                            id="${editorId}-save-btn"
+                            class="save-btn opacity-50 cursor-not-allowed" 
+                            disabled
+                            title="Enregistrer (Ctrl+S)">
+                        <i class="fas fa-save"></i>
+                    </button>
+                    <button onclick="event.stopPropagation(); textEditor.toggleFullscreen('${editorId}')" 
+                            class="fullscreen-btn" title="Plein écran">
+                        <i class="fas fa-expand"></i>
+                    </button>
+                    <button onclick="event.stopPropagation(); textEditor.minimizeWindow('${editorId}')" 
+                            class="minimize-btn" title="Réduire">
+                        <i class="fas fa-minus"></i>
+                    </button>
+                    <button onclick="event.stopPropagation(); textEditor.close('${editorId}')" title="Fermer">
+                        <i class="fas fa-times"></i>
+                    </button>
                 </div>
             </div>
             
+            <div class="editor-toolbar" style="padding: 8px 12px; background: #f8fafc; border-bottom: 1px solid #e2e8f0; display: flex; align-items: center; gap: 8px; flex-wrap: wrap;">
+                <button onclick="event.stopPropagation(); textEditor.undo('${editorId}')" 
+                        class="toolbar-btn" title="Annuler (Ctrl+Z)">
+                    <i class="fas fa-undo"></i>
+                </button>
+                <button onclick="event.stopPropagation(); textEditor.redo('${editorId}')" 
+                        class="toolbar-btn" title="Rétablir (Ctrl+Y)">
+                    <i class="fas fa-redo"></i>
+                </button>
+                <div style="width: 1px; height: 20px; background: #cbd5e1; margin: 0 4px;"></div>
+                <select id="${editorId}-font-size" 
+                        onchange="textEditor.changeFontSize('${editorId}', this.value)"
+                        style="padding: 4px 8px; border: 1px solid #cbd5e1; border-radius: 4px; font-size: 12px; background: white;">
+                    <option value="12">12px</option>
+                    <option value="14" selected>14px</option>
+                    <option value="16">16px</option>
+                    <option value="18">18px</option>
+                    <option value="20">20px</option>
+                </select>
+                <div style="flex: 1;"></div>
+                <span id="${editorId}-status" style="font-size: 12px; color: #64748b;">Chargement...</span>
+            </div>
+            
+            <div class="viewer-content viewer-content-editor" style="flex: 1; display: flex; flex-direction: column; padding: 0; background: white; overflow: hidden;">
+                <textarea id="${editorId}-textarea" 
+                          spellcheck="false"
+                          placeholder="Chargement du contenu..."
+                          style="flex: 1; width: 100%; padding: 16px; font-family: 'Consolas', 'Monaco', 'Courier New', monospace; font-size: 14px; line-height: 1.6; border: none; outline: none; resize: none; background: white; color: #1e293b; tab-size: 4; overflow: auto;"></textarea>
+            </div>
+            
+            <div class="viewer-footer" style="padding: 8px 12px; background: #f8fafc; border-top: 1px solid #e2e8f0; display: flex; justify-content: space-between; align-items: center; font-size: 11px; color: #64748b;">
+                <div style="display: flex; gap: 12px;">
+                    <span id="${editorId}-lines">Lignes: 0</span>
+                    <span id="${editorId}-chars">Caractères: 0</span>
+                    <span id="${editorId}-cursor">Ligne 1, Col 1</span>
+                </div>
+                <div style="display: flex; gap: 8px; align-items: center;">
+                    <button onclick="event.stopPropagation(); textEditor.toggleMagnetic('${editorId}')" 
+                            class="magnetic-btn" title="Aimantation activée">
+                        <i class="fas fa-magnet"></i>
+                        <span class="magnetic-status">ON</span>
+                    </button>
+                    <span style="color: #94a3b8;"><i class="fas fa-keyboard" style="margin-right: 4px;"></i>Ctrl+S pour sauvegarder</span>
+                </div>
+            </div>
+            
+            <div class="resize-handle">
+                <i class="fas fa-expand-alt"></i>
+            </div>
+            
             <style>
-                @keyframes fadeIn {
-                    from { opacity: 0; }
-                    to { opacity: 1; }
+                .floating-text-editor {
+                    display: flex;
+                    flex-direction: column;
                 }
-                
-                @keyframes slideUp {
-                    from { 
-                        opacity: 0;
-                        transform: translateY(20px);
-                    }
-                    to { 
-                        opacity: 1;
-                        transform: translateY(0);
-                    }
-                }
-                
-                .animate-fadeIn {
-                    animation: fadeIn 0.2s ease-out;
-                }
-                
-                .animate-slideUp {
-                    animation: slideUp 0.3s ease-out;
-                }
-                
-                #text-editor-content {
-                    tab-size: 4;
-                }
-                
-                #text-editor-content::-webkit-scrollbar {
+                .floating-text-editor textarea::-webkit-scrollbar {
                     width: 12px;
                     height: 12px;
                 }
-                
-                #text-editor-content::-webkit-scrollbar-track {
+                .floating-text-editor textarea::-webkit-scrollbar-track {
                     background: #f1f5f9;
                 }
-                
-                #text-editor-content::-webkit-scrollbar-thumb {
+                .floating-text-editor textarea::-webkit-scrollbar-thumb {
                     background: #cbd5e1;
                     border-radius: 6px;
                 }
-                
-                #text-editor-content::-webkit-scrollbar-thumb:hover {
+                .floating-text-editor textarea::-webkit-scrollbar-thumb:hover {
                     background: #94a3b8;
+                }
+                .toolbar-btn {
+                    padding: 6px 10px;
+                    border: 1px solid #e2e8f0;
+                    border-radius: 4px;
+                    background: white;
+                    color: #64748b;
+                    cursor: pointer;
+                    transition: all 0.15s;
+                    font-size: 13px;
+                }
+                .toolbar-btn:hover {
+                    background: #f1f5f9;
+                    color: #475569;
+                    border-color: #cbd5e1;
+                }
+                .toolbar-btn:active {
+                    transform: scale(0.95);
+                }
+                .save-btn {
+                    padding: 6px 12px;
+                    border: none;
+                    border-radius: 4px;
+                    background: #22c55e;
+                    color: white;
+                    cursor: pointer;
+                    transition: all 0.15s;
+                    font-size: 13px;
+                    display: flex;
+                    align-items: center;
+                    gap: 6px;
+                }
+                .save-btn:not(:disabled):hover {
+                    background: #16a34a;
+                    transform: translateY(-1px);
+                }
+                .save-btn:disabled {
+                    background: #94a3b8;
+                    cursor: not-allowed;
                 }
             </style>
         `;
         
-        document.body.insertAdjacentHTML('beforeend', editorHTML);
-        this.editor = document.getElementById('text-editor-content');
+        document.body.appendChild(editor);
         
-        // Charger le contenu
-        this.loadContent();
+        // Utiliser les fonctions de floatingViewer pour le drag, resize, etc.
+        floatingViewer.makeDraggable(editor);
+        floatingViewer.makeResizable(editor);
+        floatingViewer.makeClickToFront(editor);
         
-        // Event listeners
-        this.setupEventListeners();
+        // Créer les données de la fenêtre
+        const windowData = {
+            id: editorId,
+            type: 'editor',
+            element: editor,
+            magnetic: true,
+            filePath: filePath,
+            filename: filename,
+            originalContent: null,
+            isModified: false
+        };
+        
+        // Ajouter aux fenêtres actives de floatingViewer ET de textEditor
+        floatingViewer.activeWindows.push(windowData);
+        this.activeEditors.push(windowData);
+        
+        if (!isMobile) {
+            floatingViewer.cascadeWindow(editor);
+        }
+        
+        // Charger le contenu et setup
+        this.loadContent(editorId, filePath);
+        this.setupEventListeners(editorId);
+        
+        return editorId;
     },
 
-    async loadContent() {
+    async loadContent(editorId, filePath) {
+        const windowData = this.activeEditors.find(w => w.id === editorId);
+        if (!windowData) return;
+        
+        const textarea = document.getElementById(editorId + '-textarea');
+        
         try {
-            const response = await fetch(utils.buildApiUrl('view', this.currentPath));
+            const response = await fetch(utils.buildApiUrl('view', filePath));
             
             if (!response.ok) {
                 throw new Error('Impossible de charger le fichier');
             }
             
             const content = await response.text();
-            this.originalContent = content;
-            this.editor.value = content;
-            this.editor.placeholder = '';
+            windowData.originalContent = content;
+            textarea.value = content;
+            textarea.placeholder = '';
             
-            this.updateStatus('Prêt');
-            this.updateStats();
-            this.editor.focus();
+            this.updateStats(editorId);
+            this.updateStatus(editorId, 'Prêt', 'success');
+            textarea.focus();
             
         } catch (error) {
             console.error('Erreur de chargement:', error);
-            this.updateStatus('Erreur de chargement', true);
-            notifications.show(`Impossible de charger le fichier: ${error.message}`, 'error');
+            this.updateStatus(editorId, 'Erreur de chargement', 'error');
+            if (typeof notifications !== 'undefined') {
+                notifications.show(`Impossible de charger le fichier: ${error.message}`, 'error');
+            }
         }
     },
 
-    setupEventListeners() {
+    setupEventListeners(editorId) {
+        const windowData = this.activeEditors.find(w => w.id === editorId);
+        if (!windowData) return;
+        
+        const textarea = document.getElementById(editorId + '-textarea');
+        
         // Détection des modifications
-        this.editor.addEventListener('input', () => {
-            this.isModified = this.editor.value !== this.originalContent;
-            this.updateSaveButton();
-            this.updateStats();
+        textarea.addEventListener('input', () => {
+            windowData.isModified = textarea.value !== windowData.originalContent;
+            this.updateSaveButton(editorId);
+            this.updateStats(editorId);
         });
         
         // Raccourcis clavier
-        this.editor.addEventListener('keydown', (e) => {
+        textarea.addEventListener('keydown', (e) => {
             // Ctrl+S pour sauvegarder
             if (e.ctrlKey && e.key === 's') {
                 e.preventDefault();
-                if (this.isModified) {
-                    this.save();
+                if (windowData.isModified) {
+                    this.save(editorId);
                 }
             }
             
             // Tab pour indentation
             if (e.key === 'Tab') {
                 e.preventDefault();
-                const start = this.editor.selectionStart;
-                const end = this.editor.selectionEnd;
-                this.editor.value = this.editor.value.substring(0, start) + '    ' + this.editor.value.substring(end);
-                this.editor.selectionStart = this.editor.selectionEnd = start + 4;
+                const start = textarea.selectionStart;
+                const end = textarea.selectionEnd;
+                textarea.value = textarea.value.substring(0, start) + '    ' + textarea.value.substring(end);
+                textarea.selectionStart = textarea.selectionEnd = start + 4;
             }
         });
         
         // Mettre à jour la position du curseur
-        this.editor.addEventListener('keyup', () => this.updateCursorPosition());
-        this.editor.addEventListener('click', () => this.updateCursorPosition());
-        
-        // Fermeture avec Échap
-        document.addEventListener('keydown', (e) => {
-            if (e.key === 'Escape' && document.getElementById('text-editor-overlay')) {
-                this.close();
-            }
-        });
-        
-        // Empêcher la fermeture accidentelle
-        window.addEventListener('beforeunload', (e) => {
-            if (this.isModified && document.getElementById('text-editor-overlay')) {
-                e.preventDefault();
-                e.returnValue = '';
-            }
-        });
+        textarea.addEventListener('keyup', () => this.updateCursorPosition(editorId));
+        textarea.addEventListener('click', () => this.updateCursorPosition(editorId));
     },
 
-    updateSaveButton() {
-        const saveBtn = document.getElementById('save-btn');
+    updateSaveButton(editorId) {
+        const windowData = this.activeEditors.find(w => w.id === editorId);
+        if (!windowData) return;
+        
+        const saveBtn = document.getElementById(editorId + '-save-btn');
         if (saveBtn) {
-            saveBtn.disabled = !this.isModified;
-            this.updateStatus(this.isModified ? 'Modifications non enregistrées' : 'Enregistré');
+            saveBtn.disabled = !windowData.isModified;
+            if (windowData.isModified) {
+                saveBtn.classList.remove('opacity-50', 'cursor-not-allowed');
+            } else {
+                saveBtn.classList.add('opacity-50', 'cursor-not-allowed');
+            }
+        }
+        
+        this.updateStatus(editorId, windowData.isModified ? 'Modifications non enregistrées' : 'Enregistré', windowData.isModified ? 'warning' : 'success');
+    },
+
+    updateStatus(editorId, message, type = 'info') {
+        const statusEl = document.getElementById(editorId + '-status');
+        if (statusEl) {
+            statusEl.textContent = message;
+            const colors = {
+                'success': '#22c55e',
+                'warning': '#f59e0b',
+                'error': '#ef4444',
+                'info': '#64748b'
+            };
+            statusEl.style.color = colors[type] || colors.info;
         }
     },
 
-    updateStatus(message, isError = false) {
-        const status = document.getElementById('editor-status');
-        if (status) {
-            status.textContent = message;
-            status.className = `text-sm mr-2 ${isError ? 'text-red-600' : this.isModified ? 'text-orange-600' : 'text-green-600'}`;
-        }
-    },
-
-    updateStats() {
-        const content = this.editor.value;
+    updateStats(editorId) {
+        const textarea = document.getElementById(editorId + '-textarea');
+        if (!textarea) return;
+        
+        const content = textarea.value;
         const lines = content.split('\n').length;
         const chars = content.length;
         
-        const linesEl = document.getElementById('editor-lines');
-        const charsEl = document.getElementById('editor-chars');
+        const linesEl = document.getElementById(editorId + '-lines');
+        const charsEl = document.getElementById(editorId + '-chars');
         
         if (linesEl) linesEl.textContent = `Lignes: ${lines}`;
         if (charsEl) charsEl.textContent = `Caractères: ${chars}`;
     },
 
-    updateCursorPosition() {
-        const cursorEl = document.getElementById('editor-cursor');
-        if (!cursorEl) return;
+    updateCursorPosition(editorId) {
+        const textarea = document.getElementById(editorId + '-textarea');
+        const cursorEl = document.getElementById(editorId + '-cursor');
+        if (!textarea || !cursorEl) return;
         
-        const pos = this.editor.selectionStart;
-        const textBeforeCursor = this.editor.value.substring(0, pos);
+        const pos = textarea.selectionStart;
+        const textBeforeCursor = textarea.value.substring(0, pos);
         const line = textBeforeCursor.split('\n').length;
         const col = textBeforeCursor.split('\n').pop().length + 1;
         
         cursorEl.textContent = `Ligne ${line}, Col ${col}`;
     },
 
-    changeFontSize(size) {
-        this.editor.style.fontSize = `${size}px`;
-    },
-
-    undo() {
-        document.execCommand('undo');
-    },
-
-    redo() {
-        document.execCommand('redo');
-    },
-
-    find() {
-        const search = prompt('Rechercher:');
-        if (search) {
-            window.find(search);
+    changeFontSize(editorId, size) {
+        const textarea = document.getElementById(editorId + '-textarea');
+        if (textarea) {
+            textarea.style.fontSize = size + 'px';
         }
     },
 
-    async save() {
-        if (!this.isModified) return;
+    undo(editorId) {
+        const textarea = document.getElementById(editorId + '-textarea');
+        if (textarea) {
+            textarea.focus();
+            document.execCommand('undo');
+        }
+    },
+
+    redo(editorId) {
+        const textarea = document.getElementById(editorId + '-textarea');
+        if (textarea) {
+            textarea.focus();
+            document.execCommand('redo');
+        }
+    },
+
+    async save(editorId) {
+        const windowData = this.activeEditors.find(w => w.id === editorId);
+        if (!windowData || !windowData.isModified) return;
         
-        const saveBtn = document.getElementById('save-btn');
-        const originalText = saveBtn.innerHTML;
+        const textarea = document.getElementById(editorId + '-textarea');
+        const saveBtn = document.getElementById(editorId + '-save-btn');
+        
+        const originalBtnHtml = saveBtn.innerHTML;
         
         try {
             saveBtn.disabled = true;
-            saveBtn.innerHTML = '<i class="fas fa-spinner fa-spin mr-2"></i>Enregistrement...';
-            this.updateStatus('Enregistrement en cours...');
+            saveBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i>';
+            this.updateStatus(editorId, 'Enregistrement en cours...', 'info');
             
             // Créer un FormData avec le fichier
-            const blob = new Blob([this.editor.value], { type: 'text/plain' });
-            const file = new File([blob], this.currentPath.split('/').pop(), { type: 'text/plain' });
+            const blob = new Blob([textarea.value], { type: 'text/plain' });
+            const file = new File([blob], windowData.filename, { type: 'text/plain' });
             
             const formData = new FormData();
             formData.append('files', file);
             
             // Déterminer le dossier parent
-            const pathParts = this.currentPath.split('/');
-            pathParts.pop(); // Enlever le nom du fichier
+            const pathParts = windowData.filePath.split('/');
+            pathParts.pop();
             const parentPath = '/' + pathParts.join('/');
             
             formData.append('path', parentPath);
@@ -317,40 +383,71 @@ const textEditor = {
             const result = await response.json();
             
             if (response.ok) {
-                this.originalContent = this.editor.value;
-                this.isModified = false;
-                this.updateSaveButton();
-                this.updateStatus('Enregistré');
-                notifications.show('Fichier enregistré avec succès', 'success');
+                windowData.originalContent = textarea.value;
+                windowData.isModified = false;
+                this.updateSaveButton(editorId);
+                this.updateStatus(editorId, 'Enregistré', 'success');
+                
+                if (typeof notifications !== 'undefined') {
+                    notifications.show('✅ Fichier enregistré avec succès', 'success');
+                }
+                
+                // Rafraîchir la vue principale si nécessaire
+                if (typeof navigation !== 'undefined' && typeof state !== 'undefined') {
+                    const currentDir = windowData.filePath.substring(0, windowData.filePath.lastIndexOf('/')) || '/';
+                    if (state.currentPath === currentDir) {
+                        navigation.navigateToFolder(state.currentPath);
+                    }
+                }
             } else {
                 throw new Error(result.error || 'Erreur lors de l\'enregistrement');
             }
             
         } catch (error) {
             console.error('Erreur de sauvegarde:', error);
-            this.updateStatus('Erreur d\'enregistrement', true);
-            notifications.show(`Impossible d'enregistrer: ${error.message}`, 'error');
+            this.updateStatus(editorId, 'Erreur d\'enregistrement', 'error');
+            if (typeof notifications !== 'undefined') {
+                notifications.show(`❌ Impossible d'enregistrer: ${error.message}`, 'error');
+            }
         } finally {
             saveBtn.disabled = false;
-            saveBtn.innerHTML = originalText;
+            saveBtn.innerHTML = originalBtnHtml;
         }
     },
 
-    close() {
-        if (this.isModified) {
+    close(editorId) {
+        const windowData = this.activeEditors.find(w => w.id === editorId);
+        if (!windowData) return;
+        
+        if (windowData.isModified) {
             if (!confirm('Vous avez des modifications non enregistrées. Voulez-vous vraiment fermer l\'éditeur ?')) {
                 return;
             }
         }
         
-        const overlay = document.getElementById('text-editor-overlay');
-        if (overlay) {
-            overlay.remove();
-        }
+        // Utiliser la fonction de fermeture de floatingViewer
+        floatingViewer.closeWindow(editorId);
         
-        this.currentPath = null;
-        this.originalContent = null;
-        this.isModified = false;
-        this.editor = null;
+        // Retirer de notre liste
+        const index = this.activeEditors.findIndex(w => w.id === editorId);
+        if (index !== -1) {
+            this.activeEditors.splice(index, 1);
+        }
+    },
+
+    toggleFullscreen(editorId) {
+        floatingViewer.toggleFullscreen(editorId);
+        // Mettre à jour la hauteur après le changement
+        setTimeout(() => this.updateContentHeight(editorId), 350);
+    },
+
+    minimizeWindow(editorId) {
+        floatingViewer.minimizeWindow(editorId);
+        // Mettre à jour la hauteur après le changement
+        setTimeout(() => this.updateContentHeight(editorId), 150);
+    },
+
+    toggleMagnetic(editorId) {
+        floatingViewer.toggleMagnetic(editorId);
     }
 };
