@@ -1,5 +1,5 @@
 // ============================================
-// fileActions.js - Actions sur les fichiers (avec fenêtres flottantes)
+// fileActions.js - Actions sur les fichiers (avec fenêtres flottantes et éditeur)
 // ============================================
 
 const fileActions = {
@@ -28,6 +28,19 @@ const fileActions = {
         if (codeExtensions.some(ext => filename.toLowerCase().endsWith(ext))) return true;
         
         return false;
+    },
+
+    canEditFile(mimeType, filename) {
+        if (mimeType.startsWith('text/')) return true;
+        if (mimeType === 'application/json') return true;
+        
+        const editableExtensions = ['.py', '.js', '.html', '.css', '.xml', '.log', '.json', '.md', '.yml', '.yaml', '.sh', '.bat', '.txt', '.env', '.conf', '.cfg', '.ini'];
+        return editableExtensions.some(ext => filename.toLowerCase().endsWith(ext));
+    },
+
+    editFile(path, filename) {
+        contextMenu.hide();
+        textEditor.open(path, filename);
     },
 
     downloadFile(path) {
@@ -84,7 +97,7 @@ const fileActions = {
         
         if (mimeType.startsWith('image/')) {
             floatingViewer.createImageViewer(filename, utils.buildApiUrl('view', path));
-            notifications.show(`📸 Image ouverte en fenêtre flottante`, 'success');
+            notifications.show(`🖼️ Image ouverte en fenêtre flottante`, 'success');
         } else if (mimeType.startsWith('audio/')) {
             floatingViewer.createAudioPlayer(filename, utils.buildApiUrl('view', path));
             notifications.show(`🎵 Lecture audio en fenêtre flottante`, 'success');

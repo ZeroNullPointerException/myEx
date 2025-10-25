@@ -1,5 +1,5 @@
 // ============================================
-// contextMenu.js - Menu contextuel
+// contextMenu.js - Menu contextuel (avec éditeur de texte)
 // ============================================
 
 const contextMenu = {
@@ -93,11 +93,23 @@ const contextMenu = {
             `;
         } else {
             const canView = fileActions.canViewFile(file.mimeType, file.name);
+            const canEdit = fileActions.canEditFile(file.mimeType, file.name);
+            
             html += `
                 <button onclick="fileActions.handleFileClick('${safeName}', '${safePath}', '${file.mimeType}', ${file.size})" class="flex items-center w-full px-3 py-2 text-sm text-slate-700 hover:bg-blue-50 transition duration-150">
                     <i class="fas ${canView ? 'fa-eye' : 'fa-download'} mr-2 w-4"></i> ${canView ? 'Visualiser' : 'Télécharger'}
                 </button>
             `;
+            
+            // Option d'édition pour les fichiers texte
+            if (canEdit) {
+                html += `
+                    <button onclick="fileActions.editFile('${safePath}', '${safeName}')" class="flex items-center w-full px-3 py-2 text-sm text-slate-700 hover:bg-blue-50 transition duration-150">
+                        <i class="fas fa-edit mr-2 w-4 text-blue-600"></i> Éditer
+                    </button>
+                `;
+            }
+            
             if (canView) {
                 html += `
                     <button onclick="fileActions.downloadFile('${safePath}')" class="flex items-center w-full px-3 py-2 text-sm text-slate-700 hover:bg-blue-50 transition duration-150">
@@ -105,9 +117,10 @@ const contextMenu = {
                     </button>
                 `;
             }
+            
             html += `
                 <button onclick="folderActions.openRenameModal('${safeName}', '${safePath}', false)" class="flex items-center w-full px-3 py-2 text-sm text-slate-700 hover:bg-blue-50 transition duration-150">
-                    <i class="fas fa-edit mr-2 w-4"></i> Renommer
+                    <i class="fas fa-i-cursor mr-2 w-4"></i> Renommer
                 </button>
                 <button onclick="moveActions.openMoveModal('${safeName}', '${safePath}', false)" class="flex items-center w-full px-3 py-2 text-sm text-slate-700 hover:bg-blue-50 transition duration-150">
                     <i class="fas fa-arrows-alt mr-2 w-4"></i> Déplacer
