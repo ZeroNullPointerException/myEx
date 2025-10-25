@@ -3,6 +3,7 @@
 // ============================================
 
 export const windowCreators = {
+	
     createImageViewer(filename, imageUrl, asPopup = false) {
         const viewerId = 'viewer-' + Date.now();
         const isMobile = this.isMobile;
@@ -31,7 +32,16 @@ export const windowCreators = {
         this.makeDraggable(viewer);
         this.makeResizable(viewer);
         this.makeClickToFront(viewer);
-        this.activeWindows.push({ id: viewerId, type: 'image', element: viewer, magnetic: true });
+        
+        // CORRECTION 1 : Ajout de filename et filepath (imageUrl)
+        this.activeWindows.push({ 
+            id: viewerId, 
+            type: 'image', 
+            element: viewer, 
+            magnetic: true,
+            filename: filename, 
+            filepath: imageUrl 
+        });
         
         if (!isMobile) this.cascadeWindow(viewer);
         
@@ -64,7 +74,16 @@ export const windowCreators = {
         this.makeDraggable(player);
         this.makeResizable(player);
         this.makeClickToFront(player);
-        this.activeWindows.push({ id: playerId, type: 'audio', element: player, magnetic: true });
+        
+        // CORRECTION 2 : Ajout de filename et filepath (audioUrl)
+        this.activeWindows.push({ 
+            id: playerId, 
+            type: 'audio', 
+            element: player, 
+            magnetic: true,
+            filename: filename,
+            filepath: audioUrl
+        });
         
         if (!isMobile) this.cascadeWindow(player);
         
@@ -95,11 +114,15 @@ export const windowCreators = {
         this.makeDraggable(viewer);
         this.makeResizable(viewer);
         this.makeClickToFront(viewer);
+        
+        // CORRECTION 3 : Ajout de filename et filepath pour le dossier
         this.activeWindows.push({ 
             id: viewerId, 
             type: 'folder', 
             element: viewer, 
             magnetic: true,
+            filename: folderName, // Ajouté pour la détection AutoSnap
+            filepath: folderPath, // Ajouté pour la détection AutoSnap
             folderPath: folderPath 
         });
         
@@ -108,32 +131,6 @@ export const windowCreators = {
         this.loadFolderContent(viewerId, folderPath);
         
         return viewerId;
-    },
-    
-    createPopupWindow(filename, url, type) {
-        const width = type === 'image' ? 800 : 400;
-        const height = type === 'image' ? 600 : 200;
-        const left = (screen.width - width) / 2;
-        const top = (screen.height - height) / 2;
-        
-        const features = `width=${width},height=${height},left=${left},top=${top},resizable=yes,scrollbars=yes,status=no,toolbar=no,menubar=no,location=no`;
-        const popup = window.open('', 'viewer_' + Date.now(), features);
-        
-        if (!popup) {
-            if (typeof notifications !== 'undefined') {
-                notifications.show('⚠️ Les popups sont bloquées. Autorisez-les pour ce site.', 'warning');
-            }
-            return null;
-        }
-        
-        popup.document.write(this._buildPopupHTML(filename, url, type));
-        popup.document.close();
-        
-        if (typeof notifications !== 'undefined') {
-            notifications.show(`🪟 ${filename} ouvert dans une nouvelle fenêtre`, 'success');
-        }
-        
-        return popup;
     },
     
     // Templates HTML

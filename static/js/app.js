@@ -14,7 +14,7 @@ const app = {
         dom.contextMenu = document.getElementById('context-menu');
         dom.mobileSearchModal = document.getElementById('mobile-search-modal');
         dom.notificationContainer = document.getElementById('notification-container');
-
+		floatingViewer.init()
         // Événements de tri
         document.querySelectorAll('.sortable-header').forEach(header => {
             header.addEventListener('click', () => {
