@@ -236,22 +236,27 @@
         </form>
     </div>
 
-    <!-- Scripts dans l'ordre de dépendance --><script src="{{ url_for('static', filename='js/config.js') }}"></script>
+    <!-- Scripts dans l'ordre de dépendance -->
+    <script src="{{ url_for('static', filename='js/config.js') }}"></script>
     <script src="{{ url_for('static', filename='js/utils.js') }}"></script>
     <script src="{{ url_for('static', filename='js/ui.js') }}"></script>
     <script src="{{ url_for('static', filename='js/navigation.js') }}"></script>
     <script src="{{ url_for('static', filename='js/sorting.js') }}"></script>
     <script src="{{ url_for('static', filename='js/modal.js') }}"></script>
-    
     <script src="{{ url_for('static', filename='js/notifications.js') }}"></script> 
-    <script src="{{ url_for('static', filename='js/floatingViewer.js') }}"></script>
+    
+    <!-- Import du module floatingViewer -->
+    <script type="module">
+      import floatingViewer from '{{ url_for('static', filename='js/floatingWindows/floatingViewer.js') }}';
+      
+      // Exposer globalement pour compatibilité
+      window.floatingViewer = floatingViewer;
+    </script>    
     
     <script src="{{ url_for('static', filename='js/contextMenu.js') }}"></script> 
-
- 	<script src="/static/js/fileActions.js"></script>
-	<script src="/static/js/textEditor.js"></script> 
- 
-   <script src="{{ url_for('static', filename='js/folderActions.js') }}"></script>
+    <script src="{{ url_for('static', filename='js/fileActions.js') }}"></script>
+    <script src="{{ url_for('static', filename='js/textEditor.js') }}"></script> 
+    <script src="{{ url_for('static', filename='js/folderActions.js') }}"></script>
     <script src="{{ url_for('static', filename='js/moveActions.js') }}"></script>
     <script src="{{ url_for('static', filename='js/upload.js') }}"></script>
     <script src="{{ url_for('static', filename='js/search.js') }}"></script>
