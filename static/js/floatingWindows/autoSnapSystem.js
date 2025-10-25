@@ -3,33 +3,21 @@
 // ============================================
 
 export const autoSnapSystem = {
+    
     // ============================================
     // DÉTECTION DE FICHIERS LIÉS
     // ============================================
     
-    recentlyOpenedFiles: [], // Historique des fichiers ouverts
-    maxHistoryTime: 10000, // CORRECTION : 10 secondes pour considérer des fichiers comme liés (en ms)
+    recentlyOpenedFiles: [], 
+    maxHistoryTime: 10000, 
     
-    // NOUVEAU : Fonction utilitaire sécurisée pour extraire le répertoire
     getDirectory(path) {
         const lastSlash = path.lastIndexOf('/');
-        // Renvoie une chaîne vide si le fichier est à la racine, sinon le chemin
         return lastSlash === -1 ? '' : path.substring(0, lastSlash);
     },
 
     detectRelatedFiles(filename, filepath) {
         console.log(`%c[AutoSnap] Détection lancée pour : ${filename}`, 'color: #3b82f6; font-weight: bold;');
-        
-        const patterns = [
-            // Images d'une même série
-            /(.+?)[-_\s](\d+)\.(jpg|jpeg|png|gif|webp)$/i,
-            // Fichiers avec suffixes
-            /(.+?)[-_](front|back|left|right|top|bottom)\.(jpg|jpeg|png|gif|webp)$/i,
-            // Documents par chapitre
-            /(.+?)[-_]chapter[-_](\d+)\.(pdf|doc|docx)$/i,
-            // Code source
-            /(.+?)\.(js|css|html|json)$/i,
-        ];
         
         const now = Date.now();
         
@@ -40,6 +28,16 @@ export const autoSnapSystem = {
 
         console.log(`[AutoSnap] Historique après nettoyage (${this.recentlyOpenedFiles.length} fichiers) :`, this.recentlyOpenedFiles.map(f => f.filename));
         
+        let result = null;
+        if (this.recentlyOpenedFiles.length > 0) {
+            // LOGIQUE FORCÉE : Retourne toujours le fichier le plus récent si l'historique n'est pas vide
+            result = this.recentlyOpenedFiles[this.recentlyOpenedFiles.length - 1];
+            
+            console.log(`%c[AutoSnap] FORCÉ : Détection Auto-Snap affichée. Fichier lié sélectionné: ${result.filename}`, 'color: #10b981; font-weight: bold;');
+        } else {
+            console.log(`%c[AutoSnap] NON FORCÉ : Historique vide. Pas de fichier lié.`, 'color: #f87171;');
+        }
+        
         // Ajouter le fichier actuel à l'historique
         this.recentlyOpenedFiles.push({
             filename,
@@ -47,51 +45,7 @@ export const autoSnapSystem = {
             timestamp: now
         });
         
-        // Vérifier s'il y a des fichiers liés récemment ouverts
-        const related = this.recentlyOpenedFiles.filter(file => {
-            if (file.filename === filename) return false;
-            
-            console.log(`%c[AutoSnap] --> Comparaison avec fichier historique : ${file.filename}`, 'color: #60a5fa;');
-
-            // 1. Vérifier si les fichiers partagent le même préfixe (Patterns)
-            let isPatternMatch = false;
-            for (const pattern of patterns) {
-                const match1 = filename.match(pattern);
-                const match2 = file.filename.match(pattern);
-                
-                if (match1 && match2 && match1[1] === match2[1]) {
-                    isPatternMatch = true;
-                    console.log(`%c[AutoSnap] ----> Résultat Pattern : Match trouvé (${match1[1]})`, 'color: #10b981;');
-                    return true;
-                }
-            }
-            if (!isPatternMatch) {
-                console.log(`[AutoSnap] ----> Résultat Pattern : Pas de match.`);
-            }
-            
-            // 2. Vérifier si les fichiers sont dans le même dossier et similaires
-            const dir1 = this.getDirectory(filepath);
-            const dir2 = this.getDirectory(file.filepath);
-            
-            console.log(`[AutoSnap] ----> Comparaison Répertoires : '${dir1}' vs '${dir2}'`);
-
-            if (dir1 === dir2) {
-                const similarity = this.calculateSimilarity(filename, file.filename);
-                console.log(`[AutoSnap] ----> Similitude de nom (Levenshtein) : ${similarity.toFixed(3)} (Seuil > 0.6)`);
-                
-                if (similarity > 0.6) return true;
-            }
-            
-            return false;
-        });
-        
-        const result = related.length > 0 ? related[related.length - 1] : null;
-        if (result) {
-             console.log(`%c[AutoSnap] Résultat final de la détection : LIÉ`, 'color: #10b981; font-weight: bold;');
-        } else {
-             console.log(`%c[AutoSnap] Résultat final de la détection : NON LIÉ`, 'color: #f87171;');
-        }
-        return result;
+        return result; 
     },
     
     calculateSimilarity(str1, str2) {
@@ -138,17 +92,23 @@ export const autoSnapSystem = {
     
     applyAutoSnap(newWindowId, relatedFile) {
         console.log(`%c[AutoSnap] Application du Snap déclenchée : ID ${newWindowId} avec ${relatedFile.filename}`, 'color: #c084fc; font-weight: bold;');
-        // Attendre que la fenêtre soit complètement créée
+        
+        // Fermeture de la notification
+        const suggestion = document.getElementById('autosnap-suggestion');
+        if (suggestion) suggestion.remove();
+
         setTimeout(() => {
             const newWindow = this.activeWindows.find(w => w.id === newWindowId);
-            if (!newWindow) return;
-            
-            // Trouver la fenêtre du fichier lié
             const relatedWindow = this.activeWindows.find(w => 
                 w.filename === relatedFile.filename
             );
             
-            if (!relatedWindow) return;
+            if (!newWindow || !relatedWindow) {
+                console.error(`%c[AutoSnap] ERREUR: Fenêtre(s) non trouvée(s). Fenêtre actuelle trouvée: ${!!newWindow}. Fenêtre liée trouvée: ${!!relatedWindow}.`, 'color: #dc2626; font-weight: bold;');
+                return; 
+            }
+            
+            console.log(`%c[AutoSnap] Succès: Fenêtres trouvées. Application du layout...`, 'color: #10b981; font-weight: bold;');
             
             const windowCount = this.activeWindows.length;
             
@@ -191,6 +151,14 @@ export const autoSnapSystem = {
     
     showAutoSnapSuggestion(newWindowId, relatedFile) {
         console.log(`%c[AutoSnap] Affichage de la suggestion pour ${newWindowId} et ${relatedFile.filename}`, 'color: #f97316;');
+
+        // Supprimer l'ancienne notification si elle existe
+        const existingSuggestion = document.getElementById('autosnap-suggestion');
+        if (existingSuggestion) {
+             console.log("[AutoSnap] Supprime l'ancienne notification pour afficher la nouvelle.");
+             existingSuggestion.remove();
+        }
+
         const suggestion = document.createElement('div');
         suggestion.id = 'autosnap-suggestion';
         suggestion.style.cssText = `
@@ -220,9 +188,9 @@ export const autoSnapSystem = {
             <div style="display: flex; align-items: start; gap: 12px; margin-bottom: 12px;">
                 <div style="font-size: 24px;">🔗</div>
                 <div>
-                    <div style="font-weight: 600; margin-bottom: 5px;">Fichiers liés détectés</div>
+                    <div style="font-weight: 600; margin-bottom: 5px;">Organiser l'espace de travail</div>
                     <div style="font-size: 12px; color: rgba(255,255,255,0.7);">
-                        "${relatedFile.filename}" ouvert récemment
+                        Fichier(s) récent(s) détecté(s)
                     </div>
                 </div>
             </div>
@@ -255,10 +223,11 @@ export const autoSnapSystem = {
         
         document.body.appendChild(suggestion);
         
-        // Hover effects
+        // CORRECTION : Définition des variables des boutons après l'ajout de innerHTML
         const applyBtn = suggestion.querySelector('#autosnap-apply');
         const dismissBtn = suggestion.querySelector('#autosnap-dismiss');
         
+        // Hover effects
         applyBtn.addEventListener('mouseenter', () => {
             applyBtn.style.background = 'rgba(59, 130, 246, 0.3)';
         });
@@ -275,11 +244,12 @@ export const autoSnapSystem = {
         
         // Actions
         applyBtn.addEventListener('click', () => {
-            this.applyAutoSnap(newWindowId, relatedFile);
-            suggestion.remove();
+            // applyAutoSnap s'occupe de la suppression de la notification
+            this.applyAutoSnap(newWindowId, relatedFile); 
         });
         
         dismissBtn.addEventListener('click', () => {
+            // Fermeture de la notification
             suggestion.style.animation = 'slideIn 0.2s ease reverse';
             setTimeout(() => suggestion.remove(), 200);
         });
