@@ -44,10 +44,17 @@ body {
     border-radius: 12px;
     overflow: hidden;
     transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    display: flex;
+    flex-direction: column;
 }
 
 .floating-image-viewer {
     min-height: 200px;
+}
+
+.floating-text-editor {
+    display: flex;
+    flex-direction: column;
 }
 
 /* Header des viewers */
@@ -58,6 +65,7 @@ body {
     align-items: center;
     cursor: move;
     user-select: none;
+    flex-shrink: 0;
 }
 
 .viewer-header-image {
@@ -119,13 +127,15 @@ body {
 
 /* Contenu des viewers */
 .viewer-content {
+    flex: 1;
     padding: 0;
     overflow: auto;
     position: relative;
+    display: flex;
+    flex-direction: column;
 }
 
 .viewer-content-image {
-    height: calc(100% - 110px);
     display: flex;
     align-items: center;
     justify-content: center;
@@ -150,6 +160,223 @@ body {
     width: 100%;
 }
 
+.viewer-content-editor {
+    display: flex;
+    flex-direction: column;
+    padding: 0;
+    background: white;
+    overflow: hidden;
+}
+
+.viewer-content-editor textarea {
+    flex: 1;
+    width: 100%;
+    padding: 16px;
+    font-family: 'Consolas', 'Monaco', 'Courier New', monospace;
+    font-size: 14px;
+    line-height: 1.6;
+    border: none;
+    outline: none;
+    resize: none;
+    background: white;
+    color: #1e293b;
+    tab-size: 4;
+    overflow: auto;
+}
+
+.viewer-content-folder {
+    display: flex;
+    flex-direction: column;
+}
+
+.folder-loading {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    flex: 1;
+    padding: 40px 20px;
+}
+
+.folder-browser {
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+}
+
+.folder-items {
+    overflow-y: auto;
+    flex: 1;
+    padding-bottom: 40px;
+}
+
+/* Folder viewer styles */
+.folder-path {
+    padding: 12px;
+    background: #f8fafc;
+    border-bottom: 1px solid #e2e8f0;
+    font-size: 12px;
+    color: #64748b;
+    flex-shrink: 0;
+}
+
+.folder-item {
+    padding: 10px 12px;
+    border-bottom: 1px solid #f1f5f9;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    transition: background 0.15s;
+}
+
+.folder-item:hover {
+    background: #f8fafc;
+}
+
+.folder-item i {
+    width: 20px;
+}
+
+.folder-item span:first-of-type {
+    font-size: 13px;
+    color: #1e293b;
+    flex: 1;
+}
+
+.folder-item span:last-of-type {
+    font-size: 11px;
+    color: #94a3b8;
+}
+
+.folder-item .fa-chevron-right {
+    font-size: 10px;
+    color: #cbd5e1;
+}
+
+/* Folder error display */
+.folder-error {
+    padding: 40px 20px;
+    text-align: center;
+    color: #dc2626;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 12px;
+}
+
+.folder-error i {
+    font-size: 3rem;
+}
+
+.folder-error .error-title {
+    font-weight: 600;
+    font-size: 16px;
+}
+
+.folder-error .error-message {
+    font-size: 12px;
+    color: #64748b;
+}
+
+.folder-error .error-path {
+    font-size: 11px;
+    color: #94a3b8;
+}
+
+.folder-error .retry-btn {
+    margin-top: 16px;
+    padding: 8px 16px;
+    background: #3b82f6;
+    color: white;
+    border: none;
+    border-radius: 6px;
+    cursor: pointer;
+    font-size: 13px;
+    transition: all 0.15s;
+}
+
+.folder-error .retry-btn:hover {
+    background: #2563eb;
+    transform: translateY(-1px);
+}
+
+/* Toolbar de l'éditeur */
+.editor-toolbar {
+    padding: 8px 12px;
+    background: #f8fafc;
+    border-bottom: 1px solid #e2e8f0;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-wrap: wrap;
+    flex-shrink: 0;
+}
+
+.toolbar-btn {
+    padding: 6px 10px;
+    border: 1px solid #e2e8f0;
+    border-radius: 4px;
+    background: white;
+    color: #64748b;
+    cursor: pointer;
+    transition: all 0.15s;
+    font-size: 13px;
+}
+
+.toolbar-btn:hover {
+    background: #f1f5f9;
+    color: #475569;
+    border-color: #cbd5e1;
+}
+
+.toolbar-btn:active {
+    transform: scale(0.95);
+}
+
+.save-btn {
+    padding: 6px 12px;
+    border: none;
+    border-radius: 4px;
+    background: #22c55e;
+    color: white;
+    cursor: pointer;
+    transition: all 0.15s;
+    font-size: 13px;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.save-btn:not(:disabled):hover {
+    background: #16a34a;
+    transform: translateY(-1px);
+}
+
+.save-btn:disabled {
+    background: #94a3b8;
+    cursor: not-allowed;
+}
+
+/* Scrollbars pour l'éditeur */
+.floating-text-editor textarea::-webkit-scrollbar {
+    width: 12px;
+    height: 12px;
+}
+
+.floating-text-editor textarea::-webkit-scrollbar-track {
+    background: #f1f5f9;
+}
+
+.floating-text-editor textarea::-webkit-scrollbar-thumb {
+    background: #cbd5e1;
+    border-radius: 6px;
+}
+
+.floating-text-editor textarea::-webkit-scrollbar-thumb:hover {
+    background: #94a3b8;
+}
+
 /* Footer des viewers */
 .viewer-footer {
     padding: 8px 16px;
@@ -160,6 +387,7 @@ body {
     align-items: center;
     flex-wrap: wrap;
     gap: 8px;
+    flex-shrink: 0;
 }
 
 .viewer-footer button {

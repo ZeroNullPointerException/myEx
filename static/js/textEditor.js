@@ -51,7 +51,7 @@ const textEditor = {
                 </div>
             </div>
             
-            <div class="editor-toolbar" style="padding: 8px 12px; background: #f8fafc; border-bottom: 1px solid #e2e8f0; display: flex; align-items: center; gap: 8px; flex-wrap: wrap;">
+            <div class="editor-toolbar">
                 <button onclick="event.stopPropagation(); textEditor.undo('${editorId}')" 
                         class="toolbar-btn" title="Annuler (Ctrl+Z)">
                     <i class="fas fa-undo"></i>
@@ -74,11 +74,10 @@ const textEditor = {
                 <span id="${editorId}-status" style="font-size: 12px; color: #64748b;">Chargement...</span>
             </div>
             
-            <div class="viewer-content viewer-content-editor" style="flex: 1; display: flex; flex-direction: column; padding: 0; background: white; overflow: hidden;">
+            <div class="viewer-content viewer-content-editor">
                 <textarea id="${editorId}-textarea" 
                           spellcheck="false"
-                          placeholder="Chargement du contenu..."
-                          style="flex: 1; width: 100%; padding: 16px; font-family: 'Consolas', 'Monaco', 'Courier New', monospace; font-size: 14px; line-height: 1.6; border: none; outline: none; resize: none; background: white; color: #1e293b; tab-size: 4; overflow: auto;"></textarea>
+                          placeholder="Chargement du contenu..."></textarea>
             </div>
             
             <div class="viewer-footer" style="padding: 8px 12px; background: #f8fafc; border-top: 1px solid #e2e8f0; display: flex; justify-content: space-between; align-items: center; font-size: 11px; color: #64748b;">
@@ -100,66 +99,6 @@ const textEditor = {
             <div class="resize-handle">
                 <i class="fas fa-expand-alt"></i>
             </div>
-            
-            <style>
-                .floating-text-editor {
-                    display: flex;
-                    flex-direction: column;
-                }
-                .floating-text-editor textarea::-webkit-scrollbar {
-                    width: 12px;
-                    height: 12px;
-                }
-                .floating-text-editor textarea::-webkit-scrollbar-track {
-                    background: #f1f5f9;
-                }
-                .floating-text-editor textarea::-webkit-scrollbar-thumb {
-                    background: #cbd5e1;
-                    border-radius: 6px;
-                }
-                .floating-text-editor textarea::-webkit-scrollbar-thumb:hover {
-                    background: #94a3b8;
-                }
-                .toolbar-btn {
-                    padding: 6px 10px;
-                    border: 1px solid #e2e8f0;
-                    border-radius: 4px;
-                    background: white;
-                    color: #64748b;
-                    cursor: pointer;
-                    transition: all 0.15s;
-                    font-size: 13px;
-                }
-                .toolbar-btn:hover {
-                    background: #f1f5f9;
-                    color: #475569;
-                    border-color: #cbd5e1;
-                }
-                .toolbar-btn:active {
-                    transform: scale(0.95);
-                }
-                .save-btn {
-                    padding: 6px 12px;
-                    border: none;
-                    border-radius: 4px;
-                    background: #22c55e;
-                    color: white;
-                    cursor: pointer;
-                    transition: all 0.15s;
-                    font-size: 13px;
-                    display: flex;
-                    align-items: center;
-                    gap: 6px;
-                }
-                .save-btn:not(:disabled):hover {
-                    background: #16a34a;
-                    transform: translateY(-1px);
-                }
-                .save-btn:disabled {
-                    background: #94a3b8;
-                    cursor: not-allowed;
-                }
-            </style>
         `;
         
         document.body.appendChild(editor);
