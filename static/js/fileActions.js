@@ -9,8 +9,12 @@ const fileActions = {
     
     handleFileClick(filename, path, mimeType, size) {
         const canBeViewed = fileActions.canViewFile(mimeType, filename);
+        const canBeEdited = fileActions.canEditFile(mimeType, filename);
         
-        if (canBeViewed) {
+        // Si le fichier est éditable, ouvrir dans l'éditeur flottant par défaut
+        if (canBeEdited) {
+            fileActions.editFile(path, filename);
+        } else if (canBeViewed) {
             fileActions.viewFile(path, mimeType, size);
         } else {
             fileActions.downloadFile(path);
@@ -40,7 +44,7 @@ const fileActions = {
 
     editFile(path, filename) {
         contextMenu.hide();
-        textEditor.open(path, filename);
+        textEditor.open(filename, path);
     },
 
     downloadFile(path) {

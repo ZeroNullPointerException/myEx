@@ -68,9 +68,6 @@ const contextMenu = {
         
         if (file.isFolder) {
             html += `
-                <button onclick="navigation.navigateToFolder('/${safePath}')" class="flex items-center w-full px-3 py-2 text-sm text-slate-700 hover:bg-blue-50 transition duration-150">
-                    <i class="fas fa-folder-open mr-2 w-4"></i> Ouvrir
-                </button>
                 <button onclick="contextMenu.hide(); floatingViewer.createFolderViewer('${safeName}', '${safePath}')" class="flex items-center w-full px-3 py-2 text-sm text-slate-700 hover:bg-blue-50 transition duration-150">
                     <i class="fas fa-window-restore mr-2 w-4"></i> Ouvrir dans une fenêtre flottante
                 </button>
@@ -95,28 +92,40 @@ const contextMenu = {
             const canView = fileActions.canViewFile(file.mimeType, file.name);
             const canEdit = fileActions.canEditFile(file.mimeType, file.name);
             
+            // Obtenir le dossier parent du fichier
+            const parentPath = utils.getParentPath(file.path);
+            const parentFolderName = parentPath.split('/').filter(s => s).pop() || 'Racine';
+            const safeParentPath = parentPath.replace(/'/g, "\\'");
+            
             html += `
                 <button onclick="fileActions.handleFileClick('${safeName}', '${safePath}', '${file.mimeType}', ${file.size})" class="flex items-center w-full px-3 py-2 text-sm text-slate-700 hover:bg-blue-50 transition duration-150">
-                    <i class="fas ${canView ? 'fa-eye' : 'fa-download'} mr-2 w-4"></i> ${canView ? 'Visualiser' : 'Télécharger'}
+                    <i class="fas ${canEdit ? 'fa-edit' : (canView ? 'fa-eye' : 'fa-download')} mr-2 w-4"></i> ${canEdit ? 'Éditer' : (canView ? 'Visualiser' : 'Télécharger')}
                 </button>
             `;
             
-            // Option d'édition pour les fichiers texte
+            // Option d'édition pour les fichiers texte (si pas déjà le comportement par défaut)
             if (canEdit) {
                 html += `
                     <button onclick="fileActions.editFile('${safePath}', '${safeName}')" class="flex items-center w-full px-3 py-2 text-sm text-slate-700 hover:bg-blue-50 transition duration-150">
-                        <i class="fas fa-edit mr-2 w-4 text-blue-600"></i> Éditer
+                        <i class="fas fa-file-code mr-2 w-4 text-purple-600"></i> Éditer dans l'éditeur
                     </button>
                 `;
             }
             
-            if (canView) {
+            if (canView && !canEdit) {
                 html += `
                     <button onclick="fileActions.downloadFile('${safePath}')" class="flex items-center w-full px-3 py-2 text-sm text-slate-700 hover:bg-blue-50 transition duration-150">
                         <i class="fas fa-download mr-2 w-4"></i> Télécharger
                     </button>
                 `;
             }
+            
+            // Option pour ouvrir le dossier parent en fenêtre flottante
+            html += `
+                <button onclick="contextMenu.hide(); floatingViewer.createFolderViewer('${parentFolderName}', '${safeParentPath}')" class="flex items-center w-full px-3 py-2 text-sm text-slate-700 hover:bg-blue-50 transition duration-150">
+                    <i class="fas fa-folder-open mr-2 w-4 text-blue-600"></i> Ouvrir le dossier parent en fenêtre flottante
+                </button>
+            `;
             
             html += `
                 <button onclick="folderActions.openRenameModal('${safeName}', '${safePath}', false)" class="flex items-center w-full px-3 py-2 text-sm text-slate-700 hover:bg-blue-50 transition duration-150">
