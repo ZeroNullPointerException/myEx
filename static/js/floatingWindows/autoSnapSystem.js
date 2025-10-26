@@ -295,8 +295,8 @@ export const autoSnapSystem = {
     // NOTIFICATION INTELLIGENTE
     // ============================================
     
-    showAutoSnapSuggestion(windowManager, newWindowId, relatedFiles) {
-        console.log(`%c[AutoSnap] Affichage suggestion`, 'color: #f97316;');
+    showAutoSnapSuggestion(windowManager, newWindowId, relatedFiles, reason = 'open') {
+        console.log(`%c[AutoSnap] Affichage suggestion (${reason})`, 'color: #f97316;');
 
         const existingSuggestion = document.getElementById('autosnap-suggestion');
         if (existingSuggestion) {
@@ -305,21 +305,37 @@ export const autoSnapSystem = {
 
         // OPTION A : Compter TOUTES les fenêtres actives
         const totalWindows = windowManager.activeWindows.length;
+        
+        // Ne rien afficher si 0 ou 1 fenêtre
+        if (totalWindows <= 1) {
+            console.log('[AutoSnap] Pas assez de fenêtres pour une suggestion');
+            return;
+        }
+        
         const optimalLayout = this.calculateOptimalLayout(totalWindows);
         
         const suggestion = document.createElement('div');
         suggestion.id = 'autosnap-suggestion';
         suggestion.className = 'autosnap-suggestion';
         
+        // Message personnalisé selon la raison
+        const messageTitle = reason === 'close' 
+            ? `${totalWindows} fenêtre${totalWindows > 1 ? 's' : ''} restante${totalWindows > 1 ? 's' : ''}`
+            : `${totalWindows} fenêtre${totalWindows > 1 ? 's' : ''} ouverte${totalWindows > 1 ? 's' : ''}`;
+        
+        const messageSubtitle = reason === 'close'
+            ? 'Réorganiser automatiquement les fenêtres restantes'
+            : 'Organiser automatiquement toutes les fenêtres';
+        
         suggestion.innerHTML = `
             <div style="display: flex; align-items: start; gap: 12px; margin-bottom: 15px;">
-                <div style="font-size: 28px;">🔗</div>
+                <div style="font-size: 28px;">${reason === 'close' ? '🔄' : '🔗'}</div>
                 <div style="flex: 1;">
                     <div style="font-weight: 600; margin-bottom: 5px; font-size: 15px;">
-                        ${totalWindows} fenêtres ouvertes
+                        ${messageTitle}
                     </div>
                     <div style="font-size: 12px; color: rgba(255,255,255,0.6);">
-                        Organiser automatiquement toutes les fenêtres
+                        ${messageSubtitle}
                     </div>
                 </div>
             </div>

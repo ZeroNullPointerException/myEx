@@ -22,7 +22,7 @@ const floatingViewer = {
     linkedResizePair: null,
     
     // CORRECTION: Fonction centralisée pour vérifier et suggérer l'auto-snap
-    _checkAndSuggestAutoSnap(newWindowId, filename, filepath) {
+    _checkAndSuggestAutoSnap(newWindowId, filename, filepath, reason = 'open') {
         if (!filename || !filepath) {
             console.error("%c[AutoSnap] ERREUR DE DONNÉES: filename ou filepath manquant. Détection ignorée.", 'color: #dc2626; font-weight: bold;');
             return;
@@ -39,7 +39,7 @@ const floatingViewer = {
             
             // CORRECTION: Passer 'this' comme windowManager et relatedFiles comme array
             setTimeout(() => {
-                this.showAutoSnapSuggestion(this, newWindowId, relatedFiles);
+                this.showAutoSnapSuggestion(this, newWindowId, relatedFiles, reason);
             }, 500);
         } else {
             console.log("[AutoSnap] --> Pas de suggestion (fichiers liés:", relatedFiles.length, "/ fenêtres actives:", this.activeWindows.length, ")");
@@ -54,14 +54,22 @@ const floatingViewer = {
             console.error("tilingSystem.setupKeyboardShortcuts n'est pas disponible pour l'initialisation.");
         }
         
+        // 2. Initialisation de la détection Auto-Snap (ouverture)
         if (typeof this.setupAutoSnapDetection === 'function') {
-            // Utilisation d'un setTimeout court (0ms) pour forcer l'exécution
-            // après que le call stack des initialisations soit vidé.
             setTimeout(() => {
                 this.setupAutoSnapDetection();
             }, 0); 
         } else {
             console.error("ERREUR CRITIQUE: setupAutoSnapDetection n'est pas une fonction dans floatingViewer. Le système d'Auto-Snap est désactivé.");
+        }
+        
+        // 3. Initialisation de la détection Auto-Snap (fermeture)
+        if (typeof this.setupAutoSnapOnClose === 'function') {
+            setTimeout(() => {
+                this.setupAutoSnapOnClose();
+            }, 0);
+        } else {
+            console.error("ERREUR: setupAutoSnapOnClose n'est pas disponible.");
         }
         
         // Afficher un message d'aide au premier lancement
@@ -89,7 +97,7 @@ const floatingViewer = {
 
             if (newWindowId) {
                 // Logique Auto-Snap centralisée: utilise imageUrl comme filepath
-                this._checkAndSuggestAutoSnap(newWindowId, filename, imageUrl);
+                this._checkAndSuggestAutoSnap(newWindowId, filename, imageUrl, 'open');
             }
             return newWindowId;
         };
@@ -102,7 +110,7 @@ const floatingViewer = {
 
             if (newWindowId) {
                 // Logique Auto-Snap centralisée: utilise audioUrl comme filepath
-                this._checkAndSuggestAutoSnap(newWindowId, filename, audioUrl);
+                this._checkAndSuggestAutoSnap(newWindowId, filename, audioUrl, 'open');
             }
             return newWindowId;
         };
@@ -115,9 +123,38 @@ const floatingViewer = {
 
             if (newWindowId) {
                 // Logique Auto-Snap centralisée: utilise folderPath comme filepath
-                this._checkAndSuggestAutoSnap(newWindowId, folderName, folderPath);
+                this._checkAndSuggestAutoSnap(newWindowId, folderName, folderPath, 'open');
             }
             return newWindowId;
+        };
+    },
+    
+    setupAutoSnapOnClose() {
+        // === Sauvegarde de la fonction originale closeWindow ===
+        const originalCloseWindow = this.closeWindow;
+        
+        console.log("%c[AutoSnap] Initialisation de la détection de fermeture.", 'color: #22c55e; font-weight: bold;');
+        
+        this.closeWindow = (viewerId) => {
+            console.log("%c[AutoSnap] ===> Fermeture de fenêtre détectée.", 'color: #f59e0b; font-weight: bold;');
+            
+            // Appeler la fonction originale
+            originalCloseWindow.call(this, viewerId);
+            
+            // Attendre que la fenêtre soit effectivement supprimée de activeWindows
+            setTimeout(() => {
+                const remainingWindows = this.activeWindows.length;
+                
+                console.log(`[AutoSnap] Fenêtres restantes: ${remainingWindows}`);
+                
+                // Afficher la suggestion si au moins 2 fenêtres restent
+                if (remainingWindows >= 2) {
+                    console.log('%c[AutoSnap] --> Suggestion de réorganisation lancée', 'color: #16a34a;');
+                    this.showAutoSnapSuggestion(this, null, [], 'close');
+                } else {
+                    console.log('[AutoSnap] --> Pas assez de fenêtres pour suggérer une réorganisation.');
+                }
+            }, 300); // Attendre la fin de l'animation de fermeture
         };
     },
     
