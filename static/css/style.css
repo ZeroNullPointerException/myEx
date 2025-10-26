@@ -451,7 +451,104 @@ body {
 }
 
 /* ============================================
-   FIN FLOATING VIEWER
+   AUTO-SNAP SYSTEM - Notifications intelligentes
+   ============================================ */
+
+.autosnap-suggestion {
+    position: fixed;
+    bottom: 80px;
+    right: 20px;
+    background: rgba(17, 24, 39, 0.98);
+    backdrop-filter: blur(20px);
+    border: 1px solid rgba(59, 130, 246, 0.5);
+    border-radius: 16px;
+    padding: 20px;
+    z-index: 999996;
+    box-shadow: 0 10px 40px rgba(0, 0, 0, 0.5);
+    color: white;
+    font-family: system-ui, -apple-system, sans-serif;
+    max-width: 380px;
+    animation: autosnapSlideIn 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+.autosnap-suggestion.autosnap-closing {
+    animation: autosnapSlideOut 0.2s ease forwards;
+}
+
+@keyframes autosnapSlideIn {
+    from { 
+        transform: translateX(400px) scale(0.9); 
+        opacity: 0; 
+    }
+    to { 
+        transform: translateX(0) scale(1); 
+        opacity: 1; 
+    }
+}
+
+@keyframes autosnapSlideOut {
+    from { 
+        transform: translateX(0) scale(1); 
+        opacity: 1; 
+    }
+    to { 
+        transform: translateX(400px) scale(0.9); 
+        opacity: 0; 
+    }
+}
+
+.layout-option {
+    background: rgba(59, 130, 246, 0.1);
+    border: 2px solid rgba(59, 130, 246, 0.3);
+    padding: 10px;
+    border-radius: 8px;
+    cursor: pointer;
+    transition: all 0.2s;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.layout-option:hover {
+    background: rgba(59, 130, 246, 0.2);
+    border-color: rgba(59, 130, 246, 0.6);
+    transform: translateX(-2px);
+}
+
+.layout-option:active {
+    transform: translateX(-2px) scale(0.98);
+}
+
+.layout-icon {
+    font-size: 20px;
+    width: 30px;
+    text-align: center;
+    flex-shrink: 0;
+}
+
+.autosnap-dismiss-btn {
+    width: 100%;
+    background: rgba(255, 255, 255, 0.05);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    color: rgba(255, 255, 255, 0.7);
+    padding: 10px;
+    border-radius: 8px;
+    cursor: pointer;
+    font-size: 12px;
+    transition: all 0.2s;
+}
+
+.autosnap-dismiss-btn:hover {
+    background: rgba(255, 255, 255, 0.1);
+    color: rgba(255, 255, 255, 0.9);
+}
+
+.autosnap-dismiss-btn:active {
+    transform: scale(0.98);
+}
+
+/* ============================================
+   FIN FLOATING VIEWER & AUTO-SNAP
    ============================================ */
 
 .notification-container {
@@ -741,5 +838,35 @@ tbody tr:hover td i {
 
     .notification-container > div {
         width: 100%;
+    }
+    
+    /* Auto-Snap responsive */
+    .autosnap-suggestion {
+        bottom: 80px;
+        right: 10px;
+        left: 10px;
+        max-width: none;
+    }
+    
+    @keyframes autosnapSlideIn {
+        from { 
+            transform: translateY(100px) scale(0.95); 
+            opacity: 0; 
+        }
+        to { 
+            transform: translateY(0) scale(1); 
+            opacity: 1; 
+        }
+    }
+    
+    @keyframes autosnapSlideOut {
+        from { 
+            transform: translateY(0) scale(1); 
+            opacity: 1; 
+        }
+        to { 
+            transform: translateY(100px) scale(0.95); 
+            opacity: 0; 
+        }
     }
 }

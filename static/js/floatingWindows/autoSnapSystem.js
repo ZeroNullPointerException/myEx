@@ -1,42 +1,39 @@
 // ============================================
-// modules/autoSnapSystem.js - Snap automatique intelligent
+// modules/autoSnapSystem.js - Snap automatique ÉPURÉ
+// Focus: Compositions optimales SANS TROUS
 // ============================================
 
 export const autoSnapSystem = {
     
     // ============================================
-    // DÉTECTION DE FICHIERS LIÉS
+    // DÉTECTION DE FICHIERS LIÉS (SIMPLE)
     // ============================================
     
     recentlyOpenedFiles: [], 
-    maxHistoryTime: 10000, 
-    
-    getDirectory(path) {
-        const lastSlash = path.lastIndexOf('/');
-        return lastSlash === -1 ? '' : path.substring(0, lastSlash);
-    },
+    maxHistoryTime: 15000,
 
     detectRelatedFiles(filename, filepath) {
         console.log(`%c[AutoSnap] Détection lancée pour : ${filename}`, 'color: #3b82f6; font-weight: bold;');
         
         const now = Date.now();
         
-        // Nettoyer l'historique
+        // Nettoyer l'historique (ancien + doublons)
         this.recentlyOpenedFiles = this.recentlyOpenedFiles.filter(
             file => now - file.timestamp < this.maxHistoryTime
         );
 
-        console.log(`[AutoSnap] Historique après nettoyage (${this.recentlyOpenedFiles.length} fichiers) :`, this.recentlyOpenedFiles.map(f => f.filename));
+        console.log(`[AutoSnap] Historique: ${this.recentlyOpenedFiles.length} fichiers`);
         
-        let result = null;
+        let relatedFiles = [];
+        
+        // Retourner TOUS les fichiers récents SAUF le fichier actuel (éviter doublon)
         if (this.recentlyOpenedFiles.length > 0) {
-            // LOGIQUE FORCÉE : Retourne toujours le fichier le plus récent si l'historique n'est pas vide
-            result = this.recentlyOpenedFiles[this.recentlyOpenedFiles.length - 1];
-            
-            console.log(`%c[AutoSnap] FORCÉ : Détection Auto-Snap affichée. Fichier lié sélectionné: ${result.filename}`, 'color: #10b981; font-weight: bold;');
-        } else {
-            console.log(`%c[AutoSnap] NON FORCÉ : Historique vide. Pas de fichier lié.`, 'color: #f87171;');
+            relatedFiles = this.recentlyOpenedFiles.filter(f => f.filename !== filename);
+            console.log(`%c[AutoSnap] ${relatedFiles.length} fichier(s) lié(s) détecté(s)`, 'color: #10b981; font-weight: bold;');
         }
+        
+        // Supprimer les doublons du fichier actuel dans l'historique avant d'ajouter
+        this.recentlyOpenedFiles = this.recentlyOpenedFiles.filter(f => f.filename !== filename);
         
         // Ajouter le fichier actuel à l'historique
         this.recentlyOpenedFiles.push({
@@ -45,175 +42,312 @@ export const autoSnapSystem = {
             timestamp: now
         });
         
-        return result; 
-    },
-    
-    calculateSimilarity(str1, str2) {
-        const longer = str1.length > str2.length ? str1 : str2;
-        const shorter = str1.length > str2.length ? str2 : str1;
-        
-        if (longer.length === 0) return 1.0;
-        
-        const editDistance = this.levenshteinDistance(longer, shorter);
-        return (longer.length - editDistance) / longer.length;
-    },
-    
-    levenshteinDistance(str1, str2) {
-        const matrix = [];
-        
-        for (let i = 0; i <= str2.length; i++) {
-            matrix[i] = [i];
-        }
-        
-        for (let j = 0; j <= str1.length; j++) {
-            matrix[0][j] = j;
-        }
-        
-        for (let i = 1; i <= str2.length; i++) {
-            for (let j = 1; j <= str1.length; j++) {
-                if (str2.charAt(i - 1) === str1.charAt(j - 1)) {
-                    matrix[i][j] = matrix[i - 1][j - 1];
-                } else {
-                    matrix[i][j] = Math.min(
-                        matrix[i - 1][j - 1] + 1,
-                        matrix[i][j - 1] + 1,
-                        matrix[i - 1][j] + 1
-                    );
-                }
-            }
-        }
-        
-        return matrix[str2.length][str1.length];
+        return relatedFiles;
     },
     
     // ============================================
-    // AUTO-SNAP INTELLIGENT
+    // CALCUL LAYOUT OPTIMAL (COEUR DU SYSTÈME)
     // ============================================
     
-    applyAutoSnap(newWindowId, relatedFile) {
-        console.log(`%c[AutoSnap] Application du Snap déclenchée : ID ${newWindowId} avec ${relatedFile.filename}`, 'color: #c084fc; font-weight: bold;');
+    calculateOptimalLayout(windowCount) {
+        console.log(`%c[AutoSnap] Calcul layout optimal pour ${windowCount} fenêtres`, 'color: #8b5cf6; font-weight: bold;');
+        
+        // Table de correspondance PARFAITE sans trous
+        const layouts = {
+            1: { type: 'single', description: 'Plein écran' },
+            2: { type: 'split-2', description: '2 colonnes 50/50' },
+            3: { type: 'mosaic-3', description: '1 grand (66.67%) + 2 petits (33.33%)' },
+            4: { type: 'grid-2x2', description: 'Grille 2×2' },
+            5: { type: 'custom-5', description: '2 en haut + 3 en bas' },
+            6: { type: 'grid-3x2', description: 'Grille 3×2' },
+            7: { type: 'custom-7', description: '3 en haut + 4 en bas' },
+            8: { type: 'grid-4x2', description: 'Grille 4×2' },
+            9: { type: 'grid-3x3', description: 'Grille 3×3' },
+            10: { type: 'grid-5x2', description: 'Grille 5×2' },
+            11: { type: 'custom-11', description: '4-4-3 (3 lignes)' },
+            12: { type: 'grid-4x3', description: 'Grille 4×3' }
+        };
+        
+        // Pour 13+, calculer dynamiquement
+        if (windowCount > 12) {
+            const cols = Math.ceil(Math.sqrt(windowCount));
+            const rows = Math.ceil(windowCount / cols);
+            return { 
+                type: 'grid-dynamic', 
+                cols, 
+                rows,
+                description: `Grille ${cols}×${rows}` 
+            };
+        }
+        
+        const layout = layouts[windowCount];
+        console.log(`%c[AutoSnap] Layout choisi: ${layout.description}`, 'color: #22c55e; font-weight: bold;');
+        return layout;
+    },
+    
+    // ============================================
+    // AUTO-SNAP APPLICATION (CORRIGÉ)
+    // ============================================
+    
+    applyAutoSnap(windowManager, newWindowId, relatedFiles) {
+        console.log(`%c[AutoSnap] 🚀 APPLICATION DU SNAP DÉMARRÉE`, 'color: #c084fc; font-weight: bold; font-size: 14px;');
+        console.log('[AutoSnap] Nombre de fenêtres actives:', windowManager.activeWindows.length);
         
         // Fermeture de la notification
         const suggestion = document.getElementById('autosnap-suggestion');
-        if (suggestion) suggestion.remove();
+        if (suggestion) {
+            suggestion.classList.add('autosnap-closing');
+            setTimeout(() => suggestion.remove(), 200);
+        }
 
         setTimeout(() => {
-            const newWindow = this.activeWindows.find(w => w.id === newWindowId);
-            const relatedWindow = this.activeWindows.find(w => 
-                w.filename === relatedFile.filename
-            );
+            // OPTION A : Organiser TOUTES les fenêtres ouvertes (simple et prévisible)
+            const allWindows = [...windowManager.activeWindows];
+            const windowCount = allWindows.length;
             
-            if (!newWindow || !relatedWindow) {
-                console.error(`%c[AutoSnap] ERREUR: Fenêtre(s) non trouvée(s). Fenêtre actuelle trouvée: ${!!newWindow}. Fenêtre liée trouvée: ${!!relatedWindow}.`, 'color: #dc2626; font-weight: bold;');
-                return; 
+            console.log(`%c[AutoSnap] ✅ ${windowCount} fenêtres à organiser`, 'color: #10b981; font-weight: bold;');
+            console.log('[AutoSnap] Liste des fenêtres:', allWindows.map(w => `${w.filename} (${w.id})`));
+            
+            if (windowCount === 0) {
+                console.error(`%c[AutoSnap] ❌ Aucune fenêtre à organiser`, 'color: #dc2626; font-weight: bold;');
+                return;
             }
             
-            console.log(`%c[AutoSnap] Succès: Fenêtres trouvées. Application du layout...`, 'color: #10b981; font-weight: bold;');
+            // Activer le magnétisme pour toutes les fenêtres
+            allWindows.forEach(win => win.magnetic = true);
             
-            const windowCount = this.activeWindows.length;
+            // Calculer et appliquer le layout optimal
+            const optimalLayout = this.calculateOptimalLayout(windowCount);
+            console.log('[AutoSnap] Layout optimal calculé:', optimalLayout);
             
-            // Activer le magnétisme pour les deux fenêtres
-            newWindow.magnetic = true;
-            relatedWindow.magnetic = true;
+            this.applyLayout(windowManager, allWindows, optimalLayout);
             
-            // Appliquer le layout selon le nombre de fenêtres
-            if (windowCount === 2) {
-                // Deux fenêtres : split 50/50
-                this.snapToPosition(relatedWindow.element, 'half-left');
-                setTimeout(() => {
-                    this.snapToPosition(newWindow.element, 'half-right');
-                }, 100);
-                
-                if (typeof notifications !== 'undefined') {
-                    notifications.show(`🔗 Fichiers liés détectés : "${relatedFile.filename}" et "${newWindow.filename}"`, 'info');
-                }
-            } else if (windowCount === 3) {
-                // Trois fenêtres : layout "1 + 2"
-                this.applyLayout('one-plus-two');
-                
-                if (typeof notifications !== 'undefined') {
-                    notifications.show('🔗 Layout automatique appliqué pour 3 fichiers liés', 'info');
-                }
-            } else if (windowCount >= 4) {
-                // Quatre fenêtres ou plus : grille 2x2
-                this.applyLayout('quad');
-                
-                if (typeof notifications !== 'undefined') {
-                    notifications.show('🔗 Grille 2×2 appliquée pour fichiers multiples', 'info');
-                }
+            // Notification de succès
+            if (typeof notifications !== 'undefined') {
+                notifications.show(`✨ ${optimalLayout.description} appliqué pour ${windowCount} fenêtres`, 'success');
             }
-        }, 300);
+            
+        }, 500);
     },
     
     // ============================================
-    // SUGGESTIONS INTELLIGENTES
+    // APPLICATION DES LAYOUTS (UNIFIÉ)
     // ============================================
     
-    showAutoSnapSuggestion(newWindowId, relatedFile) {
-        console.log(`%c[AutoSnap] Affichage de la suggestion pour ${newWindowId} et ${relatedFile.filename}`, 'color: #f97316;');
+    applyLayout(windowManager, windows, layout) {
+        const count = windows.length;
+        
+        console.log(`%c[AutoSnap] Application: ${layout.type}`, 'color: #8b5cf6;');
+        
+        // Animation
+        windows.forEach(win => {
+            win.element.style.transition = 'all 0.4s cubic-bezier(0.34, 1.56, 0.64, 1)';
+        });
+        
+        // Router vers la bonne fonction
+        switch(layout.type) {
+            case 'single':
+                this.layoutSingle(windowManager, windows[0]);
+                break;
+            case 'split-2':
+                this.layoutSplit2(windowManager, windows);
+                break;
+            case 'mosaic-3':
+                this.layoutMosaic3(windowManager, windows);
+                break;
+            case 'grid-2x2':
+                this.layoutGrid(windowManager, windows, 2, 2);
+                break;
+            case 'custom-5':
+                this.layoutCustom5(windowManager, windows);
+                break;
+            case 'grid-3x2':
+                this.layoutGrid(windowManager, windows, 3, 2);
+                break;
+            case 'custom-7':
+                this.layoutCustom7(windowManager, windows);
+                break;
+            case 'grid-4x2':
+                this.layoutGrid(windowManager, windows, 4, 2);
+                break;
+            case 'grid-3x3':
+                this.layoutGrid(windowManager, windows, 3, 3);
+                break;
+            case 'grid-5x2':
+                this.layoutGrid(windowManager, windows, 5, 2);
+                break;
+            case 'custom-11':
+                this.layoutCustom11(windowManager, windows);
+                break;
+            case 'grid-4x3':
+                this.layoutGrid(windowManager, windows, 4, 3);
+                break;
+            case 'grid-dynamic':
+                this.layoutGrid(windowManager, windows, layout.cols, layout.rows);
+                break;
+            default:
+                console.error(`Layout ${layout.type} non reconnu`);
+        }
+    },
+    
+    // Helper pour positionner une fenêtre (UNIFIÉ)
+    setWindowPosition(windowManager, element, left, top, width, height) {
+        element.style.position = 'fixed';
+        element.style.left = `${left}vw`;
+        element.style.top = `${top}vh`;
+        element.style.width = `${width}vw`;
+        element.style.height = `${height}vh`;
+        element.style.right = 'auto';
+        element.style.bottom = 'auto';
+        element.style.borderRadius = '0';
+        element.style.margin = '0';
+        element.style.transform = 'none';
+        windowManager.updateContentHeight(element);
+    },
+    
+    // ============================================
+    // LAYOUTS SPÉCIFIQUES
+    // ============================================
+    
+    // 1 fenêtre: Plein écran
+    layoutSingle(windowManager, window) {
+        this.setWindowPosition(windowManager, window.element, 0, 0, 100, 100);
+    },
+    
+    // 2 fenêtres: 50/50
+    layoutSplit2(windowManager, windows) {
+        this.setWindowPosition(windowManager, windows[0].element, 0, 0, 50, 100);
+        this.setWindowPosition(windowManager, windows[1].element, 50, 0, 50, 100);
+    },
+    
+    // 3 fenêtres: Mosaïque 2/3 + 2×1/3
+    layoutMosaic3(windowManager, windows) {
+        this.setWindowPosition(windowManager, windows[0].element, 0, 0, 66.67, 100);
+        this.setWindowPosition(windowManager, windows[1].element, 66.67, 0, 33.33, 50);
+        this.setWindowPosition(windowManager, windows[2].element, 66.67, 50, 33.33, 50);
+    },
+    
+    // Grille générique
+    layoutGrid(windowManager, windows, cols, rows) {
+        const cellWidth = 100 / cols;
+        const cellHeight = 100 / rows;
+        
+        windows.forEach((win, index) => {
+            const row = Math.floor(index / cols);
+            const col = index % cols;
+            
+            this.setWindowPosition(
+                windowManager,
+                win.element,
+                cellWidth * col,
+                cellHeight * row,
+                cellWidth,
+                cellHeight
+            );
+        });
+    },
+    
+    // 5 fenêtres: 2 en haut + 3 en bas
+    layoutCustom5(windowManager, windows) {
+        // Ligne 1: 2 fenêtres (50% chacune)
+        this.setWindowPosition(windowManager, windows[0].element, 0, 0, 50, 50);
+        this.setWindowPosition(windowManager, windows[1].element, 50, 0, 50, 50);
+        
+        // Ligne 2: 3 fenêtres (33.33% chacune)
+        this.setWindowPosition(windowManager, windows[2].element, 0, 50, 33.33, 50);
+        this.setWindowPosition(windowManager, windows[3].element, 33.33, 50, 33.34, 50);
+        this.setWindowPosition(windowManager, windows[4].element, 66.67, 50, 33.33, 50);
+    },
+    
+    // 7 fenêtres: 3 en haut + 4 en bas
+    layoutCustom7(windowManager, windows) {
+        // Ligne 1: 3 fenêtres (33.33% chacune)
+        this.setWindowPosition(windowManager, windows[0].element, 0, 0, 33.33, 50);
+        this.setWindowPosition(windowManager, windows[1].element, 33.33, 0, 33.34, 50);
+        this.setWindowPosition(windowManager, windows[2].element, 66.67, 0, 33.33, 50);
+        
+        // Ligne 2: 4 fenêtres (25% chacune)
+        this.setWindowPosition(windowManager, windows[3].element, 0, 50, 25, 50);
+        this.setWindowPosition(windowManager, windows[4].element, 25, 50, 25, 50);
+        this.setWindowPosition(windowManager, windows[5].element, 50, 50, 25, 50);
+        this.setWindowPosition(windowManager, windows[6].element, 75, 50, 25, 50);
+    },
+    
+    // 11 fenêtres: 4-4-3
+    layoutCustom11(windowManager, windows) {
+        // Ligne 1: 4 fenêtres (25% chacune)
+        for (let i = 0; i < 4; i++) {
+            this.setWindowPosition(windowManager, windows[i].element, 25 * i, 0, 25, 33.33);
+        }
+        
+        // Ligne 2: 4 fenêtres (25% chacune)
+        for (let i = 4; i < 8; i++) {
+            this.setWindowPosition(windowManager, windows[i].element, 25 * (i - 4), 33.33, 25, 33.34);
+        }
+        
+        // Ligne 3: 3 fenêtres (33.33% chacune)
+        for (let i = 8; i < 11; i++) {
+            this.setWindowPosition(windowManager, windows[i].element, 33.33 * (i - 8), 66.67, 33.33, 33.33);
+        }
+    },
+    
+    // ============================================
+    // NOTIFICATION INTELLIGENTE
+    // ============================================
+    
+    showAutoSnapSuggestion(windowManager, newWindowId, relatedFiles) {
+        console.log(`%c[AutoSnap] Affichage suggestion`, 'color: #f97316;');
 
-        // Supprimer l'ancienne notification si elle existe
         const existingSuggestion = document.getElementById('autosnap-suggestion');
         if (existingSuggestion) {
-             console.log("[AutoSnap] Supprime l'ancienne notification pour afficher la nouvelle.");
-             existingSuggestion.remove();
+            existingSuggestion.remove();
         }
 
+        // OPTION A : Compter TOUTES les fenêtres actives
+        const totalWindows = windowManager.activeWindows.length;
+        const optimalLayout = this.calculateOptimalLayout(totalWindows);
+        
         const suggestion = document.createElement('div');
         suggestion.id = 'autosnap-suggestion';
-        suggestion.style.cssText = `
-            position: fixed;
-            bottom: 80px;
-            right: 20px;
-            background: rgba(17, 24, 39, 0.95);
-            backdrop-filter: blur(10px);
-            border: 1px solid rgba(59, 130, 246, 0.5);
-            border-radius: 12px;
-            padding: 15px 20px;
-            z-index: 999996;
-            box-shadow: 0 10px 40px rgba(0, 0, 0, 0.4);
-            color: white;
-            font-family: system-ui, -apple-system, sans-serif;
-            max-width: 350px;
-            animation: slideIn 0.3s ease;
-        `;
+        suggestion.className = 'autosnap-suggestion';
         
         suggestion.innerHTML = `
-            <style>
-                @keyframes slideIn {
-                    from { transform: translateX(400px); opacity: 0; }
-                    to { transform: translateX(0); opacity: 1; }
-                }
-            </style>
-            <div style="display: flex; align-items: start; gap: 12px; margin-bottom: 12px;">
-                <div style="font-size: 24px;">🔗</div>
-                <div>
-                    <div style="font-weight: 600; margin-bottom: 5px;">Organiser l'espace de travail</div>
-                    <div style="font-size: 12px; color: rgba(255,255,255,0.7);">
-                        Fichier(s) récent(s) détecté(s)
+            <div style="display: flex; align-items: start; gap: 12px; margin-bottom: 15px;">
+                <div style="font-size: 28px;">🔗</div>
+                <div style="flex: 1;">
+                    <div style="font-weight: 600; margin-bottom: 5px; font-size: 15px;">
+                        ${totalWindows} fenêtres ouvertes
+                    </div>
+                    <div style="font-size: 12px; color: rgba(255,255,255,0.6);">
+                        Organiser automatiquement toutes les fenêtres
                     </div>
                 </div>
             </div>
+            
+            <div style="background: rgba(59, 130, 246, 0.15); border-left: 3px solid rgba(59, 130, 246, 0.6); padding: 12px; border-radius: 8px; margin-bottom: 15px;">
+                <div style="font-size: 13px; font-weight: 600; margin-bottom: 4px;">✨ Layout optimal</div>
+                <div style="font-size: 12px; color: rgba(255,255,255,0.8);">${optimalLayout.description}</div>
+            </div>
+            
             <div style="display: flex; gap: 8px;">
                 <button id="autosnap-apply" style="
                     flex: 1;
-                    background: rgba(59, 130, 246, 0.2);
-                    border: 1px solid rgba(59, 130, 246, 0.5);
+                    background: rgba(59, 130, 246, 0.3);
+                    border: 1px solid rgba(59, 130, 246, 0.6);
                     color: white;
-                    padding: 8px 12px;
-                    border-radius: 6px;
+                    padding: 10px;
+                    border-radius: 8px;
                     cursor: pointer;
                     font-size: 13px;
-                    font-weight: 500;
+                    font-weight: 600;
                     transition: all 0.2s;
-                ">Organiser</button>
+                ">Appliquer</button>
                 <button id="autosnap-dismiss" style="
-                    flex: 1;
-                    background: rgba(255, 255, 255, 0.05);
-                    border: 1px solid rgba(255, 255, 255, 0.1);
-                    color: rgba(255,255,255,0.7);
-                    padding: 8px 12px;
-                    border-radius: 6px;
+                    background: rgba(239, 68, 68, 0.2);
+                    border: 1px solid rgba(239, 68, 68, 0.4);
+                    color: white;
+                    padding: 10px 15px;
+                    border-radius: 8px;
                     cursor: pointer;
                     font-size: 13px;
                     transition: all 0.2s;
@@ -223,43 +357,43 @@ export const autoSnapSystem = {
         
         document.body.appendChild(suggestion);
         
-        // CORRECTION : Définition des variables des boutons après l'ajout de innerHTML
+        // Bouton Appliquer
         const applyBtn = suggestion.querySelector('#autosnap-apply');
-        const dismissBtn = suggestion.querySelector('#autosnap-dismiss');
-        
-        // Hover effects
         applyBtn.addEventListener('mouseenter', () => {
-            applyBtn.style.background = 'rgba(59, 130, 246, 0.3)';
+            applyBtn.style.background = 'rgba(59, 130, 246, 0.5)';
         });
         applyBtn.addEventListener('mouseleave', () => {
-            applyBtn.style.background = 'rgba(59, 130, 246, 0.2)';
+            applyBtn.style.background = 'rgba(59, 130, 246, 0.3)';
+        });
+        applyBtn.addEventListener('click', () => {
+            console.log('%c[AutoSnap] 🎯 BOUTON APPLIQUER CLIQUÉ', 'color: #10b981; font-weight: bold; font-size: 14px;');
+            console.log('[AutoSnap] windowManager:', windowManager);
+            console.log('[AutoSnap] newWindowId:', newWindowId);
+            console.log('[AutoSnap] relatedFiles:', relatedFiles);
+            
+            // CORRECTION: Appeler via autoSnapSystem au lieu de this
+            autoSnapSystem.applyAutoSnap(windowManager, newWindowId, relatedFiles);
         });
         
+        // Bouton Ignorer
+        const dismissBtn = suggestion.querySelector('#autosnap-dismiss');
         dismissBtn.addEventListener('mouseenter', () => {
-            dismissBtn.style.background = 'rgba(255, 255, 255, 0.1)';
+            dismissBtn.style.background = 'rgba(239, 68, 68, 0.3)';
         });
         dismissBtn.addEventListener('mouseleave', () => {
-            dismissBtn.style.background = 'rgba(255, 255, 255, 0.05)';
+            dismissBtn.style.background = 'rgba(239, 68, 68, 0.2)';
         });
-        
-        // Actions
-        applyBtn.addEventListener('click', () => {
-            // applyAutoSnap s'occupe de la suppression de la notification
-            this.applyAutoSnap(newWindowId, relatedFile); 
-        });
-        
         dismissBtn.addEventListener('click', () => {
-            // Fermeture de la notification
-            suggestion.style.animation = 'slideIn 0.2s ease reverse';
+            suggestion.classList.add('autosnap-closing');
             setTimeout(() => suggestion.remove(), 200);
         });
         
-        // Auto-dismiss après 8 secondes
+        // Auto-dismiss après 10 secondes
         setTimeout(() => {
             if (document.getElementById('autosnap-suggestion')) {
-                suggestion.style.animation = 'slideIn 0.2s ease reverse';
+                suggestion.classList.add('autosnap-closing');
                 setTimeout(() => suggestion.remove(), 200);
             }
-        }, 8000);
+        }, 10000);
     }
 };

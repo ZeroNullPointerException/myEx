@@ -20,43 +20,49 @@ const floatingViewer = {
     nextZIndex: 1000,
     isMobile: window.innerWidth <= 768,
     linkedResizePair: null,
+    
+    // CORRECTION: Fonction centralisée pour vérifier et suggérer l'auto-snap
     _checkAndSuggestAutoSnap(newWindowId, filename, filepath) {
         if (!filename || !filepath) {
-            console.error("%c[AutoSnap] ERREUR DE DONNÉES: Les propriétés .name ou .path (ou leurs équivalents) manquent. Détection Auto-Snap ignorée.", 'color: #dc2626; font-weight: bold;');
+            console.error("%c[AutoSnap] ERREUR DE DONNÉES: filename ou filepath manquant. Détection ignorée.", 'color: #dc2626; font-weight: bold;');
             return;
         }
 
-        const relatedFile = this.detectRelatedFiles(filename, filepath); 
+        // CORRECTION: detectRelatedFiles retourne maintenant toujours un array
+        const relatedFiles = this.detectRelatedFiles(filename, filepath);
         
-        if (relatedFile) {
-            console.log(`%c[AutoSnap] --> Fichier LIÉ trouvé. Déclenchement de la suggestion. Fichier lié: ${relatedFile.filename}`, 'color: #16a34a;');
+        console.log('[AutoSnap] Fichiers liés détectés:', relatedFiles);
+        
+        // Vérifier qu'il y a des fichiers liés ET au moins 2 fenêtres actives
+        if (relatedFiles.length > 0 && this.activeWindows.length > 1) {
+            console.log(`%c[AutoSnap] --> ${relatedFiles.length} fichier(s) lié(s) trouvé(s). Suggestion lancée.`, 'color: #16a34a;');
             
-            // Attendre un court instant que l'historique se mette à jour
+            // CORRECTION: Passer 'this' comme windowManager et relatedFiles comme array
             setTimeout(() => {
-                if (this.activeWindows.length > 1) {
-                    this.showAutoSnapSuggestion(newWindowId, relatedFile);
-                } else {
-                    console.log("[AutoSnap] --> Fichier lié trouvé mais moins de 2 fenêtres actives. Suggestion ignorée.");
-                }
-            }, 500); 
+                this.showAutoSnapSuggestion(this, newWindowId, relatedFiles);
+            }, 500);
+        } else {
+            console.log("[AutoSnap] --> Pas de suggestion (fichiers liés:", relatedFiles.length, "/ fenêtres actives:", this.activeWindows.length, ")");
         }
     },
-init() {
+
+    init() {
         // 1. Initialisation des raccourcis clavier (via tilingSystem)
-	    if (tilingSystem.setupKeyboardShortcuts) {
+        if (tilingSystem.setupKeyboardShortcuts) {
             tilingSystem.setupKeyboardShortcuts.call(this);
         } else {
             console.error("tilingSystem.setupKeyboardShortcuts n'est pas disponible pour l'initialisation.");
         }
-	  if (typeof this.setupAutoSnapDetection === 'function') {
-				// Utilisation d'un setTimeout court (0ms) pour forcer l'exécution
-				// après que le call stack des initialisations soit vidé.
-				setTimeout(() => {
-					this.setupAutoSnapDetection();
-				}, 0); 
-			} else {
-				console.error("ERREUR CRITIQUE: setupAutoSnapDetection n'est pas une fonction dans floatingViewer. Le système d'Auto-Snap est désactivé.");
-			}
+        
+        if (typeof this.setupAutoSnapDetection === 'function') {
+            // Utilisation d'un setTimeout court (0ms) pour forcer l'exécution
+            // après que le call stack des initialisations soit vidé.
+            setTimeout(() => {
+                this.setupAutoSnapDetection();
+            }, 0); 
+        } else {
+            console.error("ERREUR CRITIQUE: setupAutoSnapDetection n'est pas une fonction dans floatingViewer. Le système d'Auto-Snap est désactivé.");
+        }
         
         // Afficher un message d'aide au premier lancement
         if (typeof notifications !== 'undefined') {
@@ -64,7 +70,9 @@ init() {
                 notifications.show('💡 Raccourcis : Ctrl+L (Layouts) | Ctrl+Flèches (Snap)', 'info');
             }, 2000);
         }
-    },setupAutoSnapDetection() {
+    },
+    
+    setupAutoSnapDetection() {
         // === Sauvegarde des fonctions originales ===
         const originalCreateImageViewer = this.createImageViewer;
         const originalCreateAudioPlayer = this.createAudioPlayer;
@@ -112,6 +120,7 @@ init() {
             return newWindowId;
         };
     },
+    
     handleScreenResize() {
         this.isMobile = window.innerWidth <= 768;
         
@@ -169,6 +178,7 @@ window.addEventListener('resize', () => floatingViewer.handleScreenResize());
 window.addEventListener('orientationchange', () => {
     setTimeout(() => floatingViewer.handleScreenResize(), 100);
 });
+
 export default floatingViewer; 
 
 // Utiliser une fonction anonyme pour s'assurer que 'floatingViewer' est bien défini
